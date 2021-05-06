@@ -2,24 +2,20 @@ import json
 
 from abtest import ABTest
 from rapidpro_abtest_creator import RapidProABTestCreator
+from sheets import abtests_from_google_spreadsheet, abtests_from_csvs
+import logging
+logging.basicConfig(filename='main.log', level=logging.WARNING, filemode='w')
 
+CSVS = ["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"]
+JSON_FILENAME = "testdata/Linear_OneNodePerAction.json"
+OUTPUT_FILENAME = "out.json"
 
 def main():
-    test1_rows = [
-        ["replace_bit_of_text","ABTesting_Pre",1,"The first personalizable message.","message.","message, Steve!",True],
-        ["replace_bit_of_text","ABTesting_Pre",3,"Good morning!","Good morning!","Good morning, Steve!",False],
-    ]
-    test2_rows = [
-        ["replace_bit_of_text","ABTesting_Pre",3,"Good morning!","Good morning","g00d m0rn1ng",False],
-    ]
-    abtest1 = ABTest("Personalization", test1_rows)
-    abtest2 = ABTest("Some1337Text", test2_rows)
-    abtests = [abtest1, abtest2]
-
-    filename = "testdata/Linear_OneNodePerAction.json"
-    rpx = RapidProABTestCreator(filename)
+    # abtests = abtests_from_google_spreadsheet(SPREADSHEET_ID)
+    abtests = abtests_from_csvs(CSVS)
+    rpx = RapidProABTestCreator(JSON_FILENAME)
     rpx.apply_abtests(abtests)
-    rpx.export_to_json("out.json")
+    rpx.export_to_json(OUTPUT_FILENAME)
 
 
 if __name__ == '__main__':

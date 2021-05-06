@@ -4,7 +4,6 @@
 
 ## Notes
 
-* ABTests have to be provided as python lists in `main.py`. TODO: Spreadsheet support
 * Each A/B test operation is replace_bit_of_text, and refers to text within
 a send_msg action. If multiple nodes match the text, the operation will
 affect all of these nodes.

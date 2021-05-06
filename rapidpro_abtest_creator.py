@@ -4,30 +4,7 @@ from collections import defaultdict
 import node_tools as nt
 from abtest import ABTest, ABTestOp
 from uuid_tools import generate_random_uuid
-
-
-
-class ContactGroup(object):
-    '''Represents a RapidPro contact group
-
-    Attributes:
-        name: group name
-        uuid: group uuid
-    '''
-
-    def __init__(self, name, uuid=generate_random_uuid()):
-        self.name = name
-        self.uuid = uuid
-
-    def to_json_group(self):
-        '''Return corresponding json object for use in RapidPro file.'''
-
-        return {
-            'uuid': self.uuid,
-            'name': self.name,
-            'query': None,
-        }
-
+from contact_group import ContactGroup
 
 class RapidProABTestCreator(object):
     '''Modifies RapidPro flows to support A/B testing.
@@ -175,17 +152,15 @@ class RapidProABTestCreator(object):
 
         # Find nodes affected by A/B tests in some way
         for abtest in abtests:
-            group_pair = (ContactGroup(abtest.groupA_name()), ContactGroup(abtest.groupB_name()))
-            self.data_["groups"].append(group_pair[0].to_json_group())
-            self.data_["groups"].append(group_pair[1].to_json_group())
-            for row in abtest.rows():
-                test_op = ABTestOp(group_pair, row)
-                uuids = self.find_nodes_by_content(row[ABTest.FLOW_ID], row[ABTest.ROW_ID], row[ABTest.ORIG_MSG])
+            self.data_["groups"].append(abtest.groupA().to_json_group())
+            self.data_["groups"].append(abtest.groupB().to_json_group())
+            for test_op in abtest.test_ops():
+                uuids = self.find_nodes_by_content(test_op.flow_id(), test_op.row_id(), test_op.orig_msg())
                 for uuid in uuids:
                     # TODO: Warn if no or multiple results.
                     # TODO: Return a uuid rather than list of uuids?
                     test_ops_by_node[uuid].append(test_op)
-                    if row[ABTest.ASSIGN_TO_GROUP]:
+                    if test_op.assign_to_group():
                         assign_to_group_ops.append((uuid, test_op))
 
         # For each node for which the contact should be assigned to a group
@@ -193,7 +168,7 @@ class RapidProABTestCreator(object):
         for node_uuid, test_op in assign_to_group_ops:
             self.insert_assign_to_group_gadget(node_uuid, test_op)
 
-        # For each nodes affected by A/B tests, 
+        # For each nodes affected by A/B tests, apply the test operations
         for flow in self.data_["flows"]:
             for node in flow["nodes"]:
                 if node["uuid"] in test_ops_by_node:

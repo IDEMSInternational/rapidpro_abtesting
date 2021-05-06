@@ -38,8 +38,8 @@ def get_assign_to_group_gadget(test_op, destination_uuid):
         .replace("EntryNode_UUID", generate_random_uuid()) \
         .replace("CaseA_UUID", generate_random_uuid()) \
         .replace("CaseB_UUID", generate_random_uuid()) \
-        .replace("GroupA_UUID", test_op.groupA_uuid()) \
-        .replace("GroupB_UUID", test_op.groupB_uuid()) \
+        .replace("GroupA_UUID", test_op.groupA().uuid) \
+        .replace("GroupB_UUID", test_op.groupB().uuid) \
         .replace("GroupA_Category_UUID", generate_random_uuid()) \
         .replace("GroupB_Category_UUID", generate_random_uuid()) \
         .replace("Other_Category_UUID", generate_random_uuid()) \
@@ -52,8 +52,8 @@ def get_assign_to_group_gadget(test_op, destination_uuid):
         .replace("RandomChoiceGroupB_Exit", generate_random_uuid()) \
         .replace("AssignToGroupANode_UUID", generate_random_uuid()) \
         .replace("AssignToGroupBNode_UUID", generate_random_uuid()) \
-        .replace("GroupA_name", test_op.groupA_name()) \
-        .replace("GroupB_name", test_op.groupB_name())
+        .replace("GroupA_name", test_op.groupA().name) \
+        .replace("GroupB_name", test_op.groupB().name)
     n_one_time_uuids = template.count("OneTimeUse_UUID")
     for _ in range(n_one_time_uuids):
         # Each time, only replace first instance.
@@ -80,8 +80,8 @@ def get_group_switch_node(test_op, destA_uuid, destB_uuid):
         .replace("Node_UUID", generate_random_uuid()) \
         .replace("CaseA_UUID", generate_random_uuid()) \
         .replace("CaseB_UUID", generate_random_uuid()) \
-        .replace("GroupA_UUID", test_op.groupA_uuid()) \
-        .replace("GroupB_UUID", test_op.groupB_uuid()) \
+        .replace("GroupA_UUID", test_op.groupA().uuid) \
+        .replace("GroupB_UUID", test_op.groupB().uuid) \
         .replace("GroupA_Category_UUID", generate_random_uuid()) \
         .replace("GroupB_Category_UUID", generate_random_uuid()) \
         .replace("Other_Category_UUID", generate_random_uuid()) \
@@ -90,8 +90,8 @@ def get_group_switch_node(test_op, destA_uuid, destB_uuid):
         .replace("ExitOther_UUID", generate_random_uuid()) \
         .replace("DestinationA_UUID", destA_uuid) \
         .replace("DestinationB_UUID", destB_uuid) \
-        .replace("GroupA_name", test_op.groupA_name()) \
-        .replace("GroupB_name", test_op.groupB_name())
+        .replace("GroupA_name", test_op.groupA().name) \
+        .replace("GroupB_name", test_op.groupB().name)
     return json.loads(template)
 
 
@@ -130,7 +130,7 @@ def apply_replace_bit_of_text(var, op):
         if action["type"] == "send_msg":
             text = action["text"]
             # TODO: Check that there is exactly one occurrence in the text
-            text_new = text.replace(op.row(ABTest.A_CONTENT), op.row(ABTest.B_CONTENT))
+            text_new = text.replace(op.a_content(), op.b_content())
             action["text"] = text_new
 
     # Generate new uuids for everything that should have a unique one.
@@ -184,7 +184,7 @@ def generate_node_variations(orig_node, test_ops):
         for var in variations:
             # For each variation, create a new node with the op applied,
             # and add the original and modified version to new_variations.
-            if op.row(ABTest.TYPE) == "replace_bit_of_text":
+            if op.op_type() == "replace_bit_of_text":
                 var_new = apply_replace_bit_of_text(var, op)
                 var.groups.append(op.groupA())
                 var_new.groups.append(op.groupB())

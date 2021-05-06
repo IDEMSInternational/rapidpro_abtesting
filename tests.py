@@ -5,19 +5,26 @@ import node_tools as nt
 from abtest import ABTest, ABTestOp
 from rapidpro_abtest_creator import ContactGroup, RapidProABTestCreator
 from testing_tools import traverse_flow, find_final_destination
+from sheets import abtests_from_csvs
+from contact_group import ContactGroup
+import logging
 
+logging.basicConfig(filename='tests.log', level=logging.WARNING, filemode='w')
 
-test1_rows = [
+header_row = ["type", "flow_id", "row_id", "original_message", "a_content(original)", "b_content", "assign_to_group"]
+
+test1_rows = [header_row,
     ["replace_bit_of_text","ABTesting_Pre",1,"The first personalizable message.","personalizable message.","personalizable message, Steve!",False],
     ["replace_bit_of_text","ABTesting_Pre",3,"Good morning!","Good morning!","Good morning, Steve!",False],
 ]
-test2_rows = [
+test2_rows = [header_row,
     ["replace_bit_of_text","ABTesting_Pre",3,"Good morning!","Good morning","g00d m0rn1ng",False],
 ]
 
 abtest1 = ABTest("Personalization", test1_rows)
 abtest2 = ABTest("Some1337Text", test2_rows)
-abtests = [abtest1, abtest2]
+# abtests = [abtest1, abtest2]
+abtests = abtests_from_csvs(["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"])
 
 test_node = {
     "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
@@ -91,13 +98,11 @@ class TestNodeTools(unittest.TestCase):
         with open(filename, "r") as rpfile:
             self.rp_json = json.load(rpfile)
             self.flow = self.rp_json["flows"][0]
-        self.group_pair1 = (ContactGroup(abtest1.groupA_name()), ContactGroup(abtest1.groupB_name()))
-        self.group_pair2 = (ContactGroup(abtest2.groupA_name()), ContactGroup(abtest2.groupB_name()))
 
     def test_generate_node_variations(self):
         test_ops = [
-            ABTestOp(self.group_pair1, test1_rows[1]),
-            ABTestOp(self.group_pair2, test2_rows[0]),
+            ABTestOp(abtest1.group_pair(), test1_rows[2]),
+            ABTestOp(abtest2.group_pair(), test2_rows[1]),
         ]
 
         variations = nt.generate_node_variations(test_node, test_ops)
@@ -118,8 +123,8 @@ class TestNodeTools(unittest.TestCase):
 
     def test_generate_node_variations_multiple_actions(self):
         test_ops = [
-            ABTestOp(self.group_pair1, test1_rows[0]),
-            ABTestOp(self.group_pair2, test2_rows[0]),
+            ABTestOp(abtest1.group_pair(), test1_rows[1]),
+            ABTestOp(abtest2.group_pair(), test2_rows[1]),
         ]
 
         variations = nt.generate_node_variations(test_node_3actions, test_ops)
@@ -142,8 +147,8 @@ class TestNodeTools(unittest.TestCase):
 
     def test_generate_group_membership_tree(self):
         test_ops = [
-            ABTestOp(self.group_pair1, test1_rows[1]),
-            ABTestOp(self.group_pair2, test2_rows[0]),
+            ABTestOp(abtest1.group_pair(), test1_rows[2]),
+            ABTestOp(abtest2.group_pair(), test2_rows[1]),
         ]
 
         variations = nt.generate_node_variations(test_node, test_ops)
@@ -153,10 +158,10 @@ class TestNodeTools(unittest.TestCase):
         # print(json.dumps(tree_nodes, indent=4))
 
         # Check that the branches of the tree lead to the correct variations.
-        groupnamesAA = [test_ops[0].groupA_name(), test_ops[1].groupA_name()]
-        groupnamesAB = [test_ops[0].groupA_name(), test_ops[1].groupB_name()]
-        groupnamesBA = [test_ops[0].groupB_name(), test_ops[1].groupA_name()]
-        groupnamesBB = [test_ops[0].groupB_name(), test_ops[1].groupB_name()]
+        groupnamesAA = [test_ops[0].groupA().name, test_ops[1].groupA().name]
+        groupnamesAB = [test_ops[0].groupA().name, test_ops[1].groupB().name]
+        groupnamesBA = [test_ops[0].groupB().name, test_ops[1].groupA().name]
+        groupnamesBB = [test_ops[0].groupB().name, test_ops[1].groupB().name]
         destAA = find_final_destination(flow, root_node, groupnamesAA)
         destAB = find_final_destination(flow, root_node, groupnamesAB)
         destBA = find_final_destination(flow, root_node, groupnamesBA)
@@ -177,12 +182,12 @@ class TestNodeTools(unittest.TestCase):
         self.assertEqual(tree_matches, variation_matches)
 
     # def test_get_group_switch_node(self):
-    #     test_op = ABTestOp(self.group_pair1, test1_rows[1])
+    #     test_op = ABTestOp(abtest1.group_pair(), test1_rows[2])
     #     switch = nt.get_group_switch_node(test_op, "dest1uuid", "dest2uuid")
     #     print(json.dumps(switch, indent=4))
 
     # def test_get_assign_to_group_gadget(self):
-    #     test_op = ABTestOp(self.group_pair1, test1_rows[1])
+    #     test_op = ABTestOp(abtest1.group_pair(), test1_rows[2])
     #     switch = nt.get_assign_to_group_gadget(test_op, "destuuid")
     #     print(json.dumps(switch, indent=4))
 
@@ -257,15 +262,14 @@ class TestRapidProABTestCreator(unittest.TestCase):
         ]
 
         # Traverse the flow with different group memberships and check the sent messages.
-        msgs1 = traverse_flow(rpx.data_["flows"][0], [abtests[0].groupA_name(), abtests[1].groupA_name()])
+        flows = rpx.data_["flows"][0]
+        msgs1 = traverse_flow(flows, [abtests[0].groupA().name, abtests[1].groupA().name])
         self.assertEqual(msgs1, exp1)
-        msgs2 = traverse_flow(rpx.data_["flows"][0], [abtests[0].groupA_name(), abtests[1].groupB_name()])
+        msgs2 = traverse_flow(flows, [abtests[0].groupA().name, abtests[1].groupB().name])
         self.assertEqual(msgs2, exp2)
-        msgs3 = traverse_flow(rpx.data_["flows"][0], [abtests[0].groupB_name(), abtests[1].groupB_name()])
-        # print(msgs3)
-        # print(exp3)
+        msgs3 = traverse_flow(flows, [abtests[0].groupB().name, abtests[1].groupB().name])
         self.assertEqual(msgs3, exp3)
-        msgs4 = traverse_flow(rpx.data_["flows"][0], [])  # "Other" branch. Should be same as msgs3
+        msgs4 = traverse_flow(flows, [])  # "Other" branch. Should be same as msgs3
         self.assertEqual(msgs4, exp4)
 
 
