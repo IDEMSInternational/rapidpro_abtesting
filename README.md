@@ -9,5 +9,4 @@
 a send_msg action. If multiple nodes match the text, the operation will
 affect all of these nodes.
 * The row_id from the A/B testing spreadsheets is ignored
-* Only nodes with a single action are supported for now. (TODO)
 * No ui_ output yet, RapidPro will lay everything out in a single column.

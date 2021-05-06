@@ -16,7 +16,7 @@ def main():
     abtest2 = ABTest("Some1337Text", test2_rows)
     abtests = [abtest1, abtest2]
 
-    filename = "testdata/LinearMessages.json"
+    filename = "testdata/Linear_OneNodePerAction.json"
     rpx = RapidProABTestCreator(filename)
     rpx.apply_abtests(abtests)
     rpx.export_to_json("out.json")

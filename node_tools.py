@@ -5,6 +5,24 @@ from abtest import ABTest, ABTestOp
 from uuid_tools import generate_random_uuid
 from templates import group_switch_node_template, assign_to_group_template
 
+
+class NodeVariation(object):
+    '''Variation of a node.
+
+    Variations are generated from an original node by applying
+    `ABTestOp`s to it.
+
+    Attributes:
+        node: The node itself.
+        groups (`list` of :obj:`ContactGroup`):
+            One entry for each `ABTestOp` that applies to the node,
+            indicating which side of the A/B test it belongs to.
+    '''
+    def __init__(self, node, groups):
+        self.node = node
+        self.groups = groups
+
+
 def get_assign_to_group_gadget(test_op, destination_uuid):
     '''
     Create a gadget that checks whether the contact is in a group
@@ -77,21 +95,62 @@ def get_group_switch_node(test_op, destA_uuid, destB_uuid):
     return json.loads(template)
 
 
-class NodeVariation(object):
-    '''Variation of a node.
+def find_node_by_uuid(flow, node_uuid):
+    '''Given a node uuid, finds the corresponding node.
 
-    Variations are generated from an original node by applying
-    `ABTestOp`s to it.
+    Args:
+        flow: flow to search in
+        node_uuid:
 
-    Attributes:
-        node: The node itself.
-        groups (`list` of :obj:`ContactGroup`):
-            One entry for each `ABTestOp` that applies to the node,
-            indicating which side of the A/B test it belongs to.
+    Returns:
+        node with uuid matchign node_uuid
+        None is node node was found.
     '''
-    def __init__(self, node, groups):
-        self.node = node
-        self.groups = groups
+
+    for node in flow["nodes"]:
+        if node["uuid"] == node_uuid:
+            return node
+    return None
+
+
+def apply_replace_bit_of_text(var, op):
+    '''Apply "replace_bit_of_text" operation on node variation.
+
+    Leaves the input variation unaffected and returns a new variation.
+
+    Args:
+        var (`NodeVariation`): node to apply the operation to.
+        op (`ABTestOp`): Operation to be applied,
+            must be of type "replace_bit_of_text"
+    '''
+
+    # Take a copy of the original variation and replace action text.
+    var_new = copy.deepcopy(var)
+    for action in var_new.node["actions"]:
+        if action["type"] == "send_msg":
+            text = action["text"]
+            # TODO: Check that there is exactly one occurrence in the text
+            text_new = text.replace(op.row(ABTest.A_CONTENT), op.row(ABTest.B_CONTENT))
+            action["text"] = text_new
+
+    # Generate new uuids for everything that should have a unique one.
+    # TODO: The node may have other fields with UUIDs that should
+    #   be unique for each variation. Compile a list of fields to check.
+    #   Nodes with actions cannot have a router.
+    var_new.node["uuid"] = generate_random_uuid()
+    for action in var_new.node["actions"]:
+        action["uuid"] = generate_random_uuid()
+        # send_msg actions can have a templating field with templates.
+        # The templating uuid should be unique, while the templates
+        # themselves refer to external objects with a fixed uuid.
+        if "templating" in action:
+            action["templating"]["uuid"] = generate_random_uuid()
+        # attachments, quick_replies don't have unique uuids.
+    for exit in var_new.node["exits"]:
+        exit["uuid"] = generate_random_uuid()
+        # Note: exit["destination_uuid"] is NOT modified because all variations
+        # should exit into the same destination as the original.
+    return var_new
 
 
 def generate_node_variations(orig_node, test_ops):
@@ -123,34 +182,12 @@ def generate_node_variations(orig_node, test_ops):
         # new_variations collects all variations (original and modified).
         new_variations = []
         for var in variations:
-            # For each variation, create a new node with the op applied.
-            # TODO: Deal with nodes that have multiple actions.
-            #     At least such nodes cannot have a router.
-            #     TODO: Compile a list of fields such nodes can have?
-            if op.row(ABTest.TYPE) == "replace_bit_of_text" and var.node["actions"] and var.node["actions"][0]["type"] == "send_msg":
-                text = var.node["actions"][0]["text"]
-                # TODO: Code for nodes with multiple actions.
-                # TODO: Check that there is exactly one occurrence in the text
-                text_new = text.replace(op.row(ABTest.A_CONTENT), op.row(ABTest.B_CONTENT))
-                # The new variation is obtained by taking a copy of the
-                # original, replacing the text, and replacing all uuids
-                # except for destination_uuids.
-                # TODO: Actions can have a templating field that has a uuid to be changed.
-                #     The templating field can have templates each with uuids
-                #     which shouldn't be changed.
-                # TODO: The node may have other fields with UUIDs that should
-                #     be unique for each variation. Compile a list of fields to check.
-                var_new = copy.deepcopy(var)
-                var_new.node["actions"][0]["text"] = text_new
-                var_new.node["uuid"] = generate_random_uuid()
-                for action in var_new.node["actions"]:
-                    action["uuid"] = generate_random_uuid()
-                for exit in var_new.node["exits"]:
-                    exit["uuid"] = generate_random_uuid()
-                    # exit["destination_uuid"] is NOT modified.
-                var.groups.append(op.groupA_name())
-                var_new.groups.append(op.groupB_name())
-                # Add the original and modified version to new_variations.
+            # For each variation, create a new node with the op applied,
+            # and add the original and modified version to new_variations.
+            if op.row(ABTest.TYPE) == "replace_bit_of_text":
+                var_new = apply_replace_bit_of_text(var, op)
+                var.groups.append(op.groupA())
+                var_new.groups.append(op.groupB())
                 new_variations += [var, var_new]
             else:
                 # TODO: Log an error

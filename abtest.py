@@ -60,6 +60,14 @@ class ABTestOp(object):
         self.group_pair_ = group_pair
         self.row_ = row
 
+    def groupA(self):
+        '''Name of the RapidPro contact group for the A side of this test.'''
+        return self.group_pair_[0]
+
+    def groupB(self):
+        '''Name of the RapidPro contact group for the B side of this test.'''
+        return self.group_pair_[1]
+
     def groupA_name(self):
         '''Name of the RapidPro contact group for the A side of this test.'''
         return self.group_pair_[0].name

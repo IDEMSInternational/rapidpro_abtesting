@@ -100,9 +100,9 @@ class RapidProABTestCreator(object):
 
         # TODO: Caching for performance?
         for flow in self.data_["flows"]:
-            for node in flow["nodes"]:
-                if node["uuid"] == node_uuid:
-                    return flow, node
+            node = nt.find_node_by_uuid(flow, node_uuid)
+            if node is not None:
+                return flow, node
         return None, None
 
 
@@ -179,14 +179,14 @@ class RapidProABTestCreator(object):
             self.data_["groups"].append(group_pair[0].to_json_group())
             self.data_["groups"].append(group_pair[1].to_json_group())
             for row in abtest.rows():
-                uuids = self.find_nodes_by_content(row[ABTest.FLOW_ID], row[ABTest.ROW_ID], row[ABTest.ORIG_MSG])
-                uuid = uuids[0]
-                # TODO: Warn if no or multiple results.
-                # TODO: Return a uuid rather than list of uuids?
                 test_op = ABTestOp(group_pair, row)
-                test_ops_by_node[uuid].append(test_op)
-                if row[ABTest.ASSIGN_TO_GROUP]:
-                    assign_to_group_ops.append((uuid, test_op))
+                uuids = self.find_nodes_by_content(row[ABTest.FLOW_ID], row[ABTest.ROW_ID], row[ABTest.ORIG_MSG])
+                for uuid in uuids:
+                    # TODO: Warn if no or multiple results.
+                    # TODO: Return a uuid rather than list of uuids?
+                    test_ops_by_node[uuid].append(test_op)
+                    if row[ABTest.ASSIGN_TO_GROUP]:
+                        assign_to_group_ops.append((uuid, test_op))
 
         # For each node for which the contact should be assigned to a group
         # before visiting it, insert the corresponding gadget before the node.
