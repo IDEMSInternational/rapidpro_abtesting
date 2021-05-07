@@ -1,5 +1,6 @@
 import json
 import copy
+import logging
 from collections import defaultdict
 import node_tools as nt
 from abtest import ABTest, ABTestOp
@@ -27,8 +28,6 @@ class RapidProABTestCreator(object):
       affect all of these nodes.
       - The row_id from the A/B testing spreadsheets is ignored
       - Further operations may be supported in future versions.
-    - Assume only one action per node, for now.
-      TODO: Support multiple actions per node
     - No ui_ output yet, RapidPro will lay it out in a single column.
       TODO: Take input node layout, modify sensibly.
     '''
@@ -55,6 +54,9 @@ class RapidProABTestCreator(object):
             text_content: Text sent by a "send_msg" action.
         '''
 
+        # TODO: We should also store the action(s) where the text was found
+        #   This would allow us to log more helpful warnings.
+
         results = []
         # TODO: Caching for performance?
         node_flow = None
@@ -62,13 +64,14 @@ class RapidProABTestCreator(object):
             if flow["name"] == flow_name:
                 node_flow = flow
         if node_flow is None:
-            # TODO: Log an error
+            logging.warning('No flow with name "{}" found.'.format(flow_name))
             return []
         for node in node_flow["nodes"]:
             # TODO: Check row_id once implemented
             for action in node["actions"]:
                 if action["type"] == "send_msg" and action["text"] == text_content:
-                    results.append(node["uuid"])
+                    if not node["uuid"] in results:  # only need one instance per node
+                        results.append(node["uuid"])
         return results
 
 
@@ -115,7 +118,8 @@ class RapidProABTestCreator(object):
             test_ops (`ABTestOp`):
         '''
 
-        # TODO: Consider multiple ops on the same node from the same test?
+        # TODO: There could be multiple ops from the same A/B test
+        #   on the same node. Simplify tree/variations in that case?
         uuid = node["uuid"]
         node_is_entrypoint = flow["nodes"][0]["uuid"] == uuid
         incoming_edges = nt.find_incoming_edges(flow, uuid)
@@ -131,7 +135,6 @@ class RapidProABTestCreator(object):
             flow["nodes"] = tree_nodes[-1:] + flow["nodes"] + tree_nodes[:-1]
         else:
             flow["nodes"] += tree_nodes
-
 
         # Redirect edges that went into the node to the root of
         # the group membership tree.
@@ -156,9 +159,11 @@ class RapidProABTestCreator(object):
             self.data_["groups"].append(abtest.groupB().to_json_group())
             for test_op in abtest.test_ops():
                 uuids = self.find_nodes_by_content(test_op.flow_id(), test_op.row_id(), test_op.orig_msg())
+                if len(uuids) == 0:
+                    logging.warning(test_op.debug_string() + "No node found where operation is applicable.")
+                if len(uuids) >= 2:
+                    logging.warning(test_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
-                    # TODO: Warn if no or multiple results.
-                    # TODO: Return a uuid rather than list of uuids?
                     test_ops_by_node[uuid].append(test_op)
                     if test_op.assign_to_group():
                         assign_to_group_ops.append((uuid, test_op))

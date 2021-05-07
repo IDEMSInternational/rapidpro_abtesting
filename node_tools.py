@@ -1,7 +1,8 @@
 import json
 import copy
+import logging
 
-from abtest import ABTest, ABTestOp
+from abtest import ABTest, ABTestOp, OpType
 from uuid_tools import generate_random_uuid
 from templates import group_switch_node_template, assign_to_group_template
 
@@ -100,11 +101,11 @@ def find_node_by_uuid(flow, node_uuid):
 
     Args:
         flow: flow to search in
-        node_uuid:
+        node_uuid: node to search for
 
     Returns:
         node with uuid matchign node_uuid
-        None is node node was found.
+        None if no node was found.
     '''
 
     for node in flow["nodes"]:
@@ -113,30 +114,45 @@ def find_node_by_uuid(flow, node_uuid):
     return None
 
 
-def apply_replace_bit_of_text(var, op):
+def apply_replace_bit_of_text(var, test_op):
     '''Apply "replace_bit_of_text" operation on node variation.
 
     Leaves the input variation unaffected and returns a new variation.
 
     Args:
         var (`NodeVariation`): node to apply the operation to.
-        op (`ABTestOp`): Operation to be applied,
+        test_op (`ABTestOp`): Operation to be applied,
             must be of type "replace_bit_of_text"
     '''
 
     # Take a copy of the original variation and replace action text.
     var_new = copy.deepcopy(var)
+    total_occurrences = 0
     for action in var_new.node["actions"]:
         if action["type"] == "send_msg":
             text = action["text"]
-            # TODO: Check that there is exactly one occurrence in the text
-            text_new = text.replace(op.a_content(), op.b_content())
+            total_occurrences += text.count(test_op.a_content())
+            text_new = text.replace(test_op.a_content(), test_op.b_content())
             action["text"] = text_new
 
+    # TODO: If we don't just store the node uuid, but also action uuid
+    #   where test_op is applicable, we could give more helpful
+    #   messages here by referring to the action text that doesn't match
+    if total_occurrences == 0:
+        # This might happen if we're trying to replace text that has
+        # already had a replacement applied to it.
+        logging.warning(test_op.debug_string() + 'No occurrences of "{}" found node.'.format(test_op.a_content()))
+    if total_occurrences >= 2:
+        logging.warning(test_op.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(test_op.a_content()))
+
     # Generate new uuids for everything that should have a unique one.
-    # TODO: The node may have other fields with UUIDs that should
-    #   be unique for each variation. Compile a list of fields to check.
-    #   Nodes with actions cannot have a router.
+    # We don't have to worry about routers because nodes with a send_msg
+    # action cannot have a router.
+    # TODO: There are 3 action types with fields where this is unclear.
+    #   "call_classifier" -- has a "classifier" with uuid
+    #   "open_ticket" -- has a "ticketer" with uuid
+    #   "set_contact_channel" -- has a field "channel" with uuid
+    #   Which of these have to be unique?
     var_new.node["uuid"] = generate_random_uuid()
     for action in var_new.node["actions"]:
         action["uuid"] = generate_random_uuid()
@@ -184,14 +200,11 @@ def generate_node_variations(orig_node, test_ops):
         for var in variations:
             # For each variation, create a new node with the op applied,
             # and add the original and modified version to new_variations.
-            if op.op_type() == "replace_bit_of_text":
+            if op.op_type() == OpType.REPLACE_BIT_OF_TEXT:
                 var_new = apply_replace_bit_of_text(var, op)
                 var.groups.append(op.groupA())
                 var_new.groups.append(op.groupB())
                 new_variations += [var, var_new]
-            else:
-                # TODO: Log an error
-                pass
         variations = new_variations
     return variations
 
