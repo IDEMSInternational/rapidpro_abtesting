@@ -42,20 +42,26 @@ class RapidProABTestCreator(object):
             self.data_ = json.load(file)
 
 
-    def find_nodes_by_content(self, flow_name, row_id, text_content):
+    def find_nodes_by_content(self, test_op):
         '''
         Go through entire data to find nodes matching the specifications.
 
         Nodes of interest are nodes with "send_msg" actions.
 
         Args:
-            flow_name: Name of the flow the node should be part of.
-            row_id: (Currently ignored)
-            text_content: Text sent by a "send_msg" action.
+            test_op:
+                Relevant fields of the test op for matching are:
+                flow_name: Name of the flow the node should be part of.
+                row_id: (Currently ignored)
+                text_content: Text sent by a "send_msg" action.
         '''
 
         # TODO: We should also store the action(s) where the text was found
         #   This would allow us to log more helpful warnings.
+
+        flow_name = test_op.flow_id()
+        row_id = test_op.row_id()
+        text_content = test_op.orig_msg()
 
         results = []
         # TODO: Caching for performance?
@@ -64,7 +70,7 @@ class RapidProABTestCreator(object):
             if flow["name"] == flow_name:
                 node_flow = flow
         if node_flow is None:
-            logging.warning('No flow with name "{}" found.'.format(flow_name))
+            logging.warning(test_op.debug_string() + 'No flow with name "{}" found.'.format(flow_name))
             return []
         for node in node_flow["nodes"]:
             # TODO: Check row_id once implemented
@@ -158,7 +164,7 @@ class RapidProABTestCreator(object):
             self.data_["groups"].append(abtest.groupA().to_json_group())
             self.data_["groups"].append(abtest.groupB().to_json_group())
             for test_op in abtest.test_ops():
-                uuids = self.find_nodes_by_content(test_op.flow_id(), test_op.row_id(), test_op.orig_msg())
+                uuids = self.find_nodes_by_content(test_op)
                 if len(uuids) == 0:
                     logging.warning(test_op.debug_string() + "No node found where operation is applicable.")
                 if len(uuids) >= 2:

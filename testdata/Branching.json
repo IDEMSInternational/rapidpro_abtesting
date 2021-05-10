@@ -1,0 +1,511 @@
+{
+  "version": "13",
+  "site": "https://rapidpro.idems.international",
+  "flows": [
+    {
+      "name": "Branching",
+      "uuid": "252d75fb-7a0c-4073-9ff8-e205ce08b398",
+      "spec_version": "13.1.0",
+      "language": "base",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "17a66c2a-4477-47a4-8311-1a70df9e7587",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text1",
+              "type": "send_msg",
+              "quick_replies": [
+                "Good",
+                "Bad"
+              ],
+              "uuid": "dc9bffb0-748e-4207-bc92-6460945603e7"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "7f09e234-795b-498f-8f03-1fe9041c9255",
+              "destination_uuid": "5dddd554-88f9-4895-b752-4bb8086ba3ec"
+            }
+          ]
+        },
+        {
+          "uuid": "5dddd554-88f9-4895-b752-4bb8086ba3ec",
+          "actions": [],
+          "router": {
+            "type": "switch",
+            "default_category_uuid": "ee53d915-a6f2-4d3f-b0a3-f3a46d042c64",
+            "cases": [
+              {
+                "arguments": [
+                  "good"
+                ],
+                "type": "has_any_word",
+                "uuid": "b46a5865-532f-4b1d-98e2-2ef5dba188e3",
+                "category_uuid": "3aab634e-f329-48c1-99a8-83b7e56c9d3c"
+              },
+              {
+                "arguments": [
+                  "bad"
+                ],
+                "type": "has_any_word",
+                "uuid": "fed77203-c1d5-479c-85d6-95ee9a1ba710",
+                "category_uuid": "67a6c351-3deb-4c01-ac49-cfe9cc1085d5"
+              }
+            ],
+            "categories": [
+              {
+                "uuid": "3aab634e-f329-48c1-99a8-83b7e56c9d3c",
+                "name": "Good",
+                "exit_uuid": "1da1dd9c-0f52-4ab6-97fa-ef8653385287"
+              },
+              {
+                "uuid": "67a6c351-3deb-4c01-ac49-cfe9cc1085d5",
+                "name": "Bad",
+                "exit_uuid": "34c29388-06a9-43a6-8c93-ce5224fcf81e"
+              },
+              {
+                "uuid": "ee53d915-a6f2-4d3f-b0a3-f3a46d042c64",
+                "name": "Other",
+                "exit_uuid": "f00b9d62-6d33-4ccf-ae2a-ca76c5492777"
+              }
+            ],
+            "operand": "@input.text",
+            "wait": {
+              "type": "msg"
+            },
+            "result_name": "Result 1"
+          },
+          "exits": [
+            {
+              "uuid": "1da1dd9c-0f52-4ab6-97fa-ef8653385287",
+              "destination_uuid": "5775606a-4b7a-4f76-adb8-cece6ba3038d"
+            },
+            {
+              "uuid": "34c29388-06a9-43a6-8c93-ce5224fcf81e",
+              "destination_uuid": "7f294a83-a2a5-4174-88e5-81ca420fe6f3"
+            },
+            {
+              "uuid": "f00b9d62-6d33-4ccf-ae2a-ca76c5492777",
+              "destination_uuid": "064339b6-0499-47f2-aca6-6c3ac117839c"
+            }
+          ]
+        },
+        {
+          "uuid": "5775606a-4b7a-4f76-adb8-cece6ba3038d",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text21",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "1f229529-1a02-449f-a277-b910ab09736d"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "8a994bb6-8111-4bb5-828a-0466f941105f",
+              "destination_uuid": "58d4e927-d9e0-4d88-8a95-c4f66fdb5dd3"
+            }
+          ]
+        },
+        {
+          "uuid": "7f294a83-a2a5-4174-88e5-81ca420fe6f3",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text22",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "8aa1319e-6153-4a38-bca5-90277b20a5c9"
+            },
+            {
+              "addresses": [
+                "spambot@mailinator.com"
+              ],
+              "subject": "Spam Email",
+              "body": "Hello!",
+              "type": "send_email",
+              "uuid": "afbfb720-de95-4b29-8454-3744d69d38f3"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "3494168a-1e9b-458d-8186-e473285090e6",
+              "destination_uuid": "58d4e927-d9e0-4d88-8a95-c4f66fdb5dd3"
+            }
+          ]
+        },
+        {
+          "uuid": "064339b6-0499-47f2-aca6-6c3ac117839c",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text23",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "1d83a956-158c-4222-a0d4-a6b15edf1211"
+            },
+            {
+              "type": "set_run_result",
+              "name": "Result 2",
+              "value": "22934",
+              "category": "",
+              "uuid": "22fd2105-d274-44d1-ac56-cb1cbb46a61c"
+            },
+            {
+              "attachments": [],
+              "text": "Text23 Again",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "a11af682-ef2a-4775-8eb8-2164d22f90b4"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "f1db6af4-b0cd-4707-b660-b4097a445cf7",
+              "destination_uuid": "1ec52c9a-6857-4403-a013-9ed1a4d7b6ea"
+            }
+          ]
+        },
+        {
+          "uuid": "58d4e927-d9e0-4d88-8a95-c4f66fdb5dd3",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text3",
+              "type": "send_msg",
+              "all_urns": false,
+              "quick_replies": [],
+              "uuid": "bdde5962-87e7-44e0-afb7-8b0b89541237"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "d7035156-c9f6-4984-b69d-8589b744d93f",
+              "destination_uuid": "a434a7ec-552f-477b-bfb4-e13eedbee566"
+            }
+          ]
+        },
+        {
+          "uuid": "1ec52c9a-6857-4403-a013-9ed1a4d7b6ea",
+          "actions": [],
+          "router": {
+            "type": "switch",
+            "default_category_uuid": "77b6d00a-11d6-45ef-96ab-d886d3eca6c9",
+            "cases": [
+              {
+                "arguments": [
+                  "Yes"
+                ],
+                "type": "has_any_word",
+                "uuid": "4864b0b5-4470-459f-93bd-ed426a140738",
+                "category_uuid": "170e83ea-a8a6-4fb6-afb5-a74fa2c1ae44"
+              }
+            ],
+            "categories": [
+              {
+                "uuid": "170e83ea-a8a6-4fb6-afb5-a74fa2c1ae44",
+                "name": "Yes",
+                "exit_uuid": "93adeffc-67d3-43d6-bde1-798870ca7436"
+              },
+              {
+                "uuid": "77b6d00a-11d6-45ef-96ab-d886d3eca6c9",
+                "name": "Other",
+                "exit_uuid": "5140a9a5-8a0e-4feb-b9e5-600e48fff226"
+              }
+            ],
+            "operand": "@input.text",
+            "wait": {
+              "type": "msg"
+            },
+            "result_name": "Result"
+          },
+          "exits": [
+            {
+              "uuid": "93adeffc-67d3-43d6-bde1-798870ca7436",
+              "destination_uuid": "0847b58f-afde-4d9c-be20-e434fff539fb"
+            },
+            {
+              "uuid": "5140a9a5-8a0e-4feb-b9e5-600e48fff226",
+              "destination_uuid": "4e3f234b-b768-430e-954c-7bc80beb6a3c"
+            }
+          ]
+        },
+        {
+          "uuid": "0847b58f-afde-4d9c-be20-e434fff539fb",
+          "actions": [
+            {
+              "type": "add_contact_groups",
+              "groups": [
+                {
+                  "uuid": "86006d4d-67d2-4c69-9f1b-9010ec2f9373",
+                  "name": "Survey Audience"
+                }
+              ],
+              "uuid": "3d4b5ce3-bb87-42e9-a75c-5ebc9018a871"
+            },
+            {
+              "attachments": [],
+              "text": "Text41",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "0cadace1-8860-4861-ac00-61303f772c3a"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "7da36613-1665-421a-b4d5-0542f2fadc34",
+              "destination_uuid": "a434a7ec-552f-477b-bfb4-e13eedbee566"
+            }
+          ]
+        },
+        {
+          "uuid": "4e3f234b-b768-430e-954c-7bc80beb6a3c",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text42",
+              "type": "send_msg",
+              "all_urns": false,
+              "quick_replies": [],
+              "uuid": "4fb2efcf-596c-4bb3-af63-71b8d408fe28"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "46b7dfaf-6b7a-47d3-9179-e6a68a750af5",
+              "destination_uuid": "a434a7ec-552f-477b-bfb4-e13eedbee566"
+            }
+          ]
+        },
+        {
+          "uuid": "a434a7ec-552f-477b-bfb4-e13eedbee566",
+          "actions": [],
+          "router": {
+            "type": "switch",
+            "cases": [
+              {
+                "uuid": "9d19118c-2230-46be-bee9-0da75e62e5d7",
+                "type": "has_group",
+                "arguments": [
+                  "86006d4d-67d2-4c69-9f1b-9010ec2f9373",
+                  "Survey Audience"
+                ],
+                "category_uuid": "8d1fc550-2179-4838-a1be-d234e1e05b1b"
+              }
+            ],
+            "categories": [
+              {
+                "uuid": "8d1fc550-2179-4838-a1be-d234e1e05b1b",
+                "name": "Survey Audience",
+                "exit_uuid": "26ee733e-4a80-4496-85da-b43f0f62f76a"
+              },
+              {
+                "uuid": "4148614d-5733-421d-9745-0f479929a580",
+                "name": "Other",
+                "exit_uuid": "28558c26-b460-4d01-b8fd-c7acb49019b0"
+              }
+            ],
+            "default_category_uuid": "4148614d-5733-421d-9745-0f479929a580",
+            "operand": "@contact.groups",
+            "result_name": ""
+          },
+          "exits": [
+            {
+              "uuid": "26ee733e-4a80-4496-85da-b43f0f62f76a",
+              "destination_uuid": "f3dc86e0-08bc-40af-8276-58db7cb928f7"
+            },
+            {
+              "uuid": "28558c26-b460-4d01-b8fd-c7acb49019b0",
+              "destination_uuid": "962849dc-df0b-4a02-bb5e-e2bb118523eb"
+            }
+          ]
+        },
+        {
+          "uuid": "f3dc86e0-08bc-40af-8276-58db7cb928f7",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text61",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "208a4d45-f02d-4359-942b-3ee59252d61a"
+            },
+            {
+              "attachments": [],
+              "text": "Text61 Again",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "97882f62-6d11-40d7-af79-00c157d006a4"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "fb561bf3-3e52-4b69-acdf-0cccb6e15d0d",
+              "destination_uuid": "ccf924cc-3646-4341-ad29-92087139102a"
+            }
+          ]
+        },
+        {
+          "uuid": "962849dc-df0b-4a02-bb5e-e2bb118523eb",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text62",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "42c29982-9fcc-49b6-8c46-45acbe2b37f7"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "24308b3e-7723-4882-9139-67f5f2e4bb6e",
+              "destination_uuid": "ccf924cc-3646-4341-ad29-92087139102a"
+            }
+          ]
+        },
+        {
+          "uuid": "ccf924cc-3646-4341-ad29-92087139102a",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Text7",
+              "type": "send_msg",
+              "all_urns": false,
+              "quick_replies": [],
+              "uuid": "3db0cc25-3f59-4857-a8c1-55664304f59b"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "b2330644-b84e-423b-bf6a-542eb48aa40a",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "17a66c2a-4477-47a4-8311-1a70df9e7587": {
+            "position": {
+              "left": 600,
+              "top": 80
+            },
+            "type": "execute_actions"
+          },
+          "5dddd554-88f9-4895-b752-4bb8086ba3ec": {
+            "type": "wait_for_response",
+            "position": {
+              "left": 600,
+              "top": 220
+            },
+            "config": {
+              "cases": {}
+            }
+          },
+          "5775606a-4b7a-4f76-adb8-cece6ba3038d": {
+            "position": {
+              "left": 360,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "7f294a83-a2a5-4174-88e5-81ca420fe6f3": {
+            "position": {
+              "left": 600,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "064339b6-0499-47f2-aca6-6c3ac117839c": {
+            "position": {
+              "left": 900,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "58d4e927-d9e0-4d88-8a95-c4f66fdb5dd3": {
+            "position": {
+              "left": 480,
+              "top": 540
+            },
+            "type": "execute_actions"
+          },
+          "a434a7ec-552f-477b-bfb4-e13eedbee566": {
+            "type": "split_by_groups",
+            "position": {
+              "left": 700,
+              "top": 960
+            },
+            "config": {
+              "cases": {}
+            }
+          },
+          "4e3f234b-b768-430e-954c-7bc80beb6a3c": {
+            "position": {
+              "left": 1020,
+              "top": 760
+            },
+            "type": "execute_actions"
+          },
+          "1ec52c9a-6857-4403-a013-9ed1a4d7b6ea": {
+            "type": "wait_for_response",
+            "position": {
+              "left": 900,
+              "top": 620
+            },
+            "config": {
+              "cases": {}
+            }
+          },
+          "f3dc86e0-08bc-40af-8276-58db7cb928f7": {
+            "position": {
+              "left": 580,
+              "top": 1100
+            },
+            "type": "execute_actions"
+          },
+          "962849dc-df0b-4a02-bb5e-e2bb118523eb": {
+            "position": {
+              "left": 820,
+              "top": 1120
+            },
+            "type": "execute_actions"
+          },
+          "ccf924cc-3646-4341-ad29-92087139102a": {
+            "position": {
+              "left": 700,
+              "top": 1300
+            },
+            "type": "execute_actions"
+          },
+          "0847b58f-afde-4d9c-be20-e434fff539fb": {
+            "position": {
+              "left": 800,
+              "top": 760
+            },
+            "type": "execute_actions"
+          }
+        }
+      },
+      "revision": 112,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 59
+      },
+      "localization": {}
+    }
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [],
+  "groups": [
+    {
+      "uuid": "86006d4d-67d2-4c69-9f1b-9010ec2f9373",
+      "name": "Survey Audience",
+      "query": null
+    }
+  ]
+}

@@ -8,7 +8,14 @@ import node_tools as nt
 # TODO: Implement some kind of check that uuids are unique whereever
 # they are supposed to be unique?
 
-def find_destination_uuid(current_node, group_names):
+class Context(object):
+    def __init__(self, group_names, inputs, random_choices):
+        self.group_names = group_names
+        self.inputs = inputs
+        self.random_choices = random_choices
+
+
+def find_destination_uuid(current_node, context):
     '''
     For a given node, find the next node that is visited and return its uuid.
 
@@ -23,32 +30,56 @@ def find_destination_uuid(current_node, group_names):
         Maybe be None if it is the last node.
     '''
 
+    # By default, choose the first exit.
     destination_uuid = current_node["exits"][0]["destination_uuid"]
     if "router" in current_node:
         router = current_node["router"]
-        if router["type"] == "switch":  # other type is "random"
-            # TODO: Check "operand" to ensure it is group: 
-            # "operand": "@contact.groups"
-            # and case type is "has_group"
+        if router["type"] == "switch":
+            # Get value of the operand
+            if router["operand"] == "@contact.groups":
+                operand = context.group_names
+            elif router["operand"] == "@input.text":
+                operand = context.inputs.pop(0)
+            else:
+                operand = None
+
+            # Find the case that applies here and get its category_uuid
             category_uuid = router["default_category_uuid"]  # The "Other" option (default)
-            for case in router["cases"]:
-                # TODO: Also check Group UUIDs, not just names?
-                if case["type"] == "has_group" and case["arguments"][1] in group_names:
-                    category_uuid = case["category_uuid"]
-                    break
+            if operand is not None:
+                for case in router["cases"]:
+                    if case["type"] == "has_group":
+                        group_name = case["arguments"][1]
+                        if group_name in operand:
+                            # Note: We ignore the Group UUID here.
+                            category_uuid = case["category_uuid"]
+                            break
+                    elif case["type"] == "has_any_word":
+                        # No variable substitution supported here
+                        for argument in case["arguments"]:
+                            if argument.lower() in operand.lower():
+                                category_uuid = case["category_uuid"]
+                                break
+
+            # Find the category matching the case and get its exit_uuid
             exit_uuid = None
             for category in router["categories"]:
                 if category["uuid"] == category_uuid:
                     exit_uuid = category["exit_uuid"]
             if exit_uuid is None:
                 raise ValueError("No valid exit_uuid in router of node with uuid " + current_node["uuid"])
-            destination_uuid = -1  # None is a valid value indicating the end of a flow
-            for exit in current_node["exits"]:
-                if exit["uuid"] == exit_uuid:
-                    destination_uuid = exit["destination_uuid"]
-                    break
-            if destination_uuid == -1:
-                raise ValueError("No valid destination_uuid in router of node with uuid " + current_node["uuid"])
+        else:  # router["type"] == "random"
+            # Get the exit_uuid from a random category
+            random_choice = context.random_choices.pop(0)
+            exit_uuid = router["categories"][random_choice]["exit_uuid"]
+
+        # Find the exit we take here and get its destination_uuid
+        destination_uuid = -1  # -1 because None is a valid value indicating the end of a flow
+        for exit in current_node["exits"]:
+            if exit["uuid"] == exit_uuid:
+                destination_uuid = exit["destination_uuid"]
+                break
+        if destination_uuid == -1:
+            raise ValueError("No valid destination_uuid in router of node with uuid " + current_node["uuid"])
     return destination_uuid
 
 
@@ -79,7 +110,7 @@ action_value_fields = {
     "transfer_airtime" : (lambda x: "Amount"),
 }
 
-def traverse_flow(flow, group_names):
+def traverse_flow(flow, context):
     '''
     Traverse a given flow, assuming the user's group memberships
     as specified in group_names, which determine which path through
@@ -90,7 +121,6 @@ def traverse_flow(flow, group_names):
         that are encounters while traversing through the flow.
 
     Only supports send_msg actions and group switches
-    TODO: Incorporate more node types, user input, "enter new flow", etc.
     TODO: Abort after too many steps (there may be cycles).
     '''
 
@@ -98,25 +128,38 @@ def traverse_flow(flow, group_names):
     current_node = flow["nodes"][0]
     while current_node is not None:
         for action in current_node["actions"]:
-            action_type = action["type"]
+            # Log the action, regardless of its type
             # TODO: Try/catch in case of unrecognized action/missing field?
+            action_type = action["type"]
             action_value = action_value_fields[action_type](action)
             outputs.append((action_type, action_value))
-        destination_uuid = find_destination_uuid(current_node, group_names)
+
+            # We only support a very small subset of actions.
+            if action_type == "add_contact_groups":
+                for group in action["groups"]:
+                    context.group_names.append(group["name"])
+            elif action_type == "enter_flow":
+                # TODO: recurse, append outputs
+                # We need to have all flows for that.
+                # action["flow"]["name"]
+                # action["flow"]["uuid"]
+                pass
+        destination_uuid = find_destination_uuid(current_node, context)
         current_node = nt.find_node_by_uuid(flow, destination_uuid)
     return outputs
 
 
-def find_final_destination(flow, node, group_names):
+def find_final_destination(flow, node, context):
     '''Starting at node in flow, traverse the flow until we reach a
     destination that is not contained inside the flow.
+    TODO: Abort after too many steps (there may be cycles).
 
     Returns:
         uuid of the destination outside the flow
     '''
 
     while node is not None:
-        destination_uuid = find_destination_uuid(node, group_names)
+        destination_uuid = find_destination_uuid(node, context)
         node = nt.find_node_by_uuid(flow, destination_uuid)
     return destination_uuid
 

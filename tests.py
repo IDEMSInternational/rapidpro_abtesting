@@ -4,6 +4,7 @@ import json
 import node_tools as nt
 from abtest import ABTest, ABTestOp, OpType
 from rapidpro_abtest_creator import ContactGroup, RapidProABTestCreator
+from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
 from sheets import abtests_from_csvs
 from contact_group import ContactGroup
@@ -149,10 +150,10 @@ class TestNodeTools(unittest.TestCase):
         groupnamesAB = [test_ops[0].groupA().name, test_ops[1].groupB().name]
         groupnamesBA = [test_ops[0].groupB().name, test_ops[1].groupA().name]
         groupnamesBB = [test_ops[0].groupB().name, test_ops[1].groupB().name]
-        destAA = find_final_destination(flow, root_node, groupnamesAA)
-        destAB = find_final_destination(flow, root_node, groupnamesAB)
-        destBA = find_final_destination(flow, root_node, groupnamesBA)
-        destBB = find_final_destination(flow, root_node, groupnamesBB)
+        destAA = find_final_destination(flow, root_node, Context(groupnamesAA, [], []))
+        destAB = find_final_destination(flow, root_node, Context(groupnamesAB, [], []))
+        destBA = find_final_destination(flow, root_node, Context(groupnamesBA, [], []))
+        destBB = find_final_destination(flow, root_node, Context(groupnamesBB, [], []))
         # Get unique, hashable representations of the groupname/destination pairs
         treeAA = (destAA, tuple(sorted(set(groupnamesAA))))
         treeAB = (destAB, tuple(sorted(set(groupnamesAB))))
@@ -184,19 +185,22 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
         filename = "testdata/Linear_OneNodePerAction.json"
         self.rpx = RapidProABTestCreator(filename)
 
-    def test_find_nodes(self):
+    def make_minimal_test_op(self, flow_name, row_id, text_content):
+        return ABTestOp(None, [None, flow_name, row_id, text_content, "", "", False], "Debug_str")
+
+    def test_find_nodes(self):        
         # A valid node in given flow with given text
-        nodes1 = self.rpx.find_nodes_by_content("ABTesting_Pre", -1, 'Good morning!')
+        nodes1 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("ABTesting_Pre", -1, 'Good morning!'))
         self.assertEqual(nodes1, ['aa0028ce-6f67-4313-bdc1-c2dd249a227d'])
         # non-existing node text
-        nodes2 = self.rpx.find_nodes_by_content("ABTesting_Pre", -1, 'LOL!')
+        nodes2 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("ABTesting_Pre", -1, 'LOL!'))
         self.assertEqual(nodes2, [])
         # non-existing flow name
-        nodes3 = self.rpx.find_nodes_by_content("Trololo", -1, 'Good morning!')
+        nodes3 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("Trololo", -1, 'Good morning!'))
         self.assertEqual(nodes3, [])
 
 
-class TestRapidProABTestCreator(unittest.TestCase):
+class TestRapidProABTestCreatorLinear(unittest.TestCase):
     def setUp(self):
         self.abtests = abtests_from_csvs(["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"])
 
@@ -252,14 +256,99 @@ class TestRapidProABTestCreator(unittest.TestCase):
 
         # Traverse the flow with different group memberships and check the sent messages.
         flows = rpx.data_["flows"][0]
-        msgs1 = traverse_flow(flows, [self.abtests[0].groupA().name, self.abtests[1].groupA().name])
+        groupsAA = [self.abtests[0].groupA().name, self.abtests[1].groupA().name]
+        msgs1 = traverse_flow(flows, Context(groupsAA, [], []))
         self.assertEqual(msgs1, exp1)
-        msgs2 = traverse_flow(flows, [self.abtests[0].groupA().name, self.abtests[1].groupB().name])
+        groupsAB = [self.abtests[0].groupA().name, self.abtests[1].groupB().name]
+        msgs2 = traverse_flow(flows, Context(groupsAB, [], []))
         self.assertEqual(msgs2, exp2)
-        msgs3 = traverse_flow(flows, [self.abtests[0].groupB().name, self.abtests[1].groupB().name])
+        groupsBB = [self.abtests[0].groupB().name, self.abtests[1].groupB().name]
+        msgs3 = traverse_flow(flows, Context(groupsBB, [], []))
         self.assertEqual(msgs3, exp3)
-        msgs4 = traverse_flow(flows, [])  # "Other" branch. Should be same as msgs3
+        msgs4 = traverse_flow(flows, Context([], [], []))  # "Other" branch. Should be same as msgs3
         self.assertEqual(msgs4, exp4)
+
+
+class TestRapidProABTestCreatorBranching(unittest.TestCase):
+    def setUp(self):
+        self.abtests = abtests_from_csvs(["testdata/Branching.csv"])
+        self.groupA_name = self.abtests[0].groupA().name
+        self.groupB_name = self.abtests[0].groupB().name
+        filename = "testdata/Branching.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+        self.flows = rpx.data_["flows"][0]
+
+    def test_apply_abtests_1(self):
+        exp1 = [
+            ('send_msg', 'Text1'),
+            ('send_msg', 'Text21'),
+            ('send_msg', 'Text3 replaced'),
+            ('send_msg', 'Text61'),
+            ('send_msg', 'Text61 Again replaced'),
+            ('send_msg', 'Text7')
+        ]
+        groups1 = [self.groupB_name, "Survey Audience"]
+        output1 = traverse_flow(self.flows, Context(groups1, ["Good"], []))
+        self.assertEqual(output1, exp1)
+
+        # We enforce the same group assignment with the random choice "1"
+        exp2 = exp1[:2] + [('add_contact_groups', self.groupB_name)] + exp1[2:]
+        groups2 = ["Survey Audience"]
+        output2 = traverse_flow(self.flows, Context(groups2, ["Good"], [1]))
+        self.assertEqual(output2, exp2)
+
+    def test_apply_abtests_2(self):
+        exp1 = [
+            ('send_msg', 'Text1'),
+            ('send_msg', 'Text23'),
+            ('set_run_result', 'Result 2'),
+            ('send_msg', 'Text23 Again replaced'),
+            ('add_contact_groups', 'Survey Audience'),
+            ('send_msg', 'Text41'),
+            ('send_msg', 'Text61'),
+            ('send_msg', 'Text61 Again replaced'),
+            ('send_msg', 'Text7')
+        ]
+        groups1 = [self.groupB_name, "Survey Audience"]
+        output1 = traverse_flow(self.flows, Context(groups1, ["Something", "Yes"], []))
+        self.assertEqual(output1, exp1)
+
+        # We enforce the same testing group assignment with the random choice "1"
+        # "Survey Audience" is being added by the choice "Yes"
+        exp2 = exp1[:1] + [('add_contact_groups', self.groupB_name)] + exp1[1:]
+        groups2 = []
+        output2 = traverse_flow(self.flows, Context(groups2, ["Something", "Yes"], [1]))
+        self.assertEqual(output2, exp2)
+
+    def test_apply_abtests_3(self):
+        exp1 = [
+            ('send_msg', 'Text1'),
+            ('send_msg', 'Text22'),
+            ('send_email', 'Spam Email'),
+            ('add_contact_groups', self.groupA_name),
+            ('send_msg', 'Text3'),
+            ('send_msg', 'Text62'),
+            ('send_msg', 'Text7')
+        ]
+        groups1 = []
+        output1 = traverse_flow(self.flows, Context(groups1, ["Bad"], [0]))
+        self.assertEqual(output1, exp1)
+
+    def test_apply_abtests_4(self):
+        exp1 = [
+            ('send_msg', 'Text1'),
+            ('add_contact_groups', self.groupB_name),
+            ('send_msg', 'Text23'),
+            ('set_run_result', 'Result 2'),
+            ('send_msg', 'Text23 Again replaced'),
+            ('send_msg', 'Text42 replaced'),
+            ('send_msg', 'Text62 replaced'),
+            ('send_msg', 'Text7')
+        ]
+        groups1 = []
+        output1 = traverse_flow(self.flows, Context(groups1, ["otter", "otter"], [1]))
+        self.assertEqual(output1, exp1)
 
 
 if __name__ == '__main__':
