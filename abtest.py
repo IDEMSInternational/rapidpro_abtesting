@@ -12,9 +12,23 @@ A_CONTENT = 4
 B_CONTENT = 5
 ASSIGN_TO_GROUP = 6
 
+BIT_OF_TEXT = 4
+SPLIT_BY = 5
+DEFAULT_TEXT = 6
+CATEGORIES = 7
 
 class OpType(Enum):
     REPLACE_BIT_OF_TEXT = 1
+
+
+class SwitchCategory(object):
+    def __init__(self, name, condition_type, condition_arguments, replacement_text):
+        self.name = name
+        self.condition_type = condition_type
+        self.condition_arguments = condition_arguments
+         # -- note: has_group has uuid and name in arg list.
+         #    Fill in uuid upon construction.
+        self.replacement_text = replacement_text
 
 
 class ABTest(object):
@@ -111,7 +125,54 @@ class ABTest(object):
         return self.test_ops_[index]
 
 
-class ABTestOp(object):
+class FlowEditOp(object):
+    def __init__(self, row, split_by, default_text, debug_string):
+        self._op_type = row[TYPE]
+        self._flow_id = row[FLOW_ID]
+        self._row_id = row[ROW_ID]
+        self._orig_msg = row[ORIG_MSG]
+        self._bit_of_text = row[BIT_OF_TEXT]
+        self._split_by = split_by
+        self._default_text = default_text
+        self._categories = []
+        self._debug_string = debug_string
+
+    def add_category(self, category):
+        self._categories.append(category)
+
+    def debug_string(self):
+        '''Returns a human-readable identifier of sheet/row of the FlowEditOp.'''
+        return self._debug_string
+
+    def op_type(self):
+        return self._op_type
+
+    def flow_id(self):
+        return self._flow_id
+
+    def row_id(self):
+        return self._row_id
+
+    def orig_msg(self):
+        return self._orig_msg
+
+    def bit_of_text(self):
+        return self._bit_of_text
+
+    def split_by(self):
+        return self._split_by
+
+    def default_text(self):
+        return self._default_text
+
+    def categories(self):
+        return self._categories
+
+    def assign_to_group(self):
+        return False
+
+
+class ABTestOp(FlowEditOp):
     '''
     An individual operation to be applied to a component of a RapidPro flow,
     such as a node.
@@ -122,48 +183,32 @@ class ABTestOp(object):
     '''
 
     def __init__(self, group_pair, row, debug_string):
-        self.group_pair_ = group_pair
-        self.row_ = row
-        self.debug_string_ = debug_string
-
-    def __eq__(self, other):
-        """Equality currently ignores the ROW_ID as it is unused."""
-        if isinstance(other, ABTestOp):
-            return self.row_[:ROW_ID] + self.row_[:ORIG_MSG] == other.row_[:ROW_ID] + other.row_[:ORIG_MSG] and self.group_pair_ == other.group_pair_
-        return False
+        super().__init__(row, "@contact.groups", row[A_CONTENT], debug_string)
+        self._assign_to_group = row[ASSIGN_TO_GROUP]
+        groupA, groupB = group_pair
+        categoryA = SwitchCategory(groupA.name, "has_group", [groupA.uuid, groupA.name], row[A_CONTENT])
+        self.add_category(categoryA)
+        categoryB = SwitchCategory(groupB.name, "has_group", [groupB.uuid, groupB.name], row[B_CONTENT])
+        self.add_category(categoryB)
 
     def groupA(self):
         '''ContactGroup for the A side of this test.'''
-        return self.group_pair_[0]
+        return ContactGroup(self._categories[0].condition_arguments[1], 
+                            self._categories[0].condition_arguments[0])
 
     def groupB(self):
-        '''ContactGroup for the B side of this test.'''
-        return self.group_pair_[1]
+        '''ContactGroup for the A side of this test.'''
+        return ContactGroup(self._categories[1].condition_arguments[1], 
+                            self._categories[1].condition_arguments[0]) 
 
     def group_pair(self):
-        return self.group_pair_
-
-    def op_type(self):
-        return self.row_[TYPE]
-
-    def flow_id(self):
-        return self.row_[FLOW_ID]
-
-    def row_id(self):
-        return self.row_[ROW_ID]
-
-    def orig_msg(self):
-        return self.row_[ORIG_MSG]
+        return (self.groupA(), self.groupB())
 
     def a_content(self):
-        return self.row_[A_CONTENT]
+        return self._categories[0].replacement_text
 
     def b_content(self):
-        return self.row_[B_CONTENT]
+        return self._categories[1].replacement_text
 
     def assign_to_group(self):
-        return self.row_[ASSIGN_TO_GROUP]
-
-    def debug_string(self):
-        '''Returns a human-readable identifier of sheet/row of the test_op.'''
-        return self.debug_string_
+        return self._assign_to_group

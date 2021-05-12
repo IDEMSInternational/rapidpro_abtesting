@@ -62,7 +62,7 @@ def get_assign_to_group_gadget(test_op, destination_uuid):
     return json.loads(template)
 
 
-def get_group_switch_node(test_op, destA_uuid, destB_uuid):
+def get_group_switch_node(test_op, dest_uuids):
     '''
     Create a router node with two exits, one for each of the two groups
     of the group pair defined in test_op.
@@ -77,6 +77,9 @@ def get_group_switch_node(test_op, destA_uuid, destB_uuid):
     Returns:
         node
     '''
+    return get_switch_node(test_op, dest_uuids + [dest_uuids[-1]])
+
+    # Obsoleted due to more general version from get_switch_node
     template = group_switch_node_template \
         .replace("Node_UUID", generate_random_uuid()) \
         .replace("CaseA_UUID", generate_random_uuid()) \
@@ -89,11 +92,79 @@ def get_group_switch_node(test_op, destA_uuid, destB_uuid):
         .replace("ExitA_UUID", generate_random_uuid()) \
         .replace("ExitB_UUID", generate_random_uuid()) \
         .replace("ExitOther_UUID", generate_random_uuid()) \
-        .replace("DestinationA_UUID", destA_uuid) \
-        .replace("DestinationB_UUID", destB_uuid) \
+        .replace("DestinationA_UUID", dest_uuids[0]) \
+        .replace("DestinationB_UUID", dest_uuids[1]) \
         .replace("GroupA_name", test_op.groupA().name) \
         .replace("GroupB_name", test_op.groupB().name)
     return json.loads(template)
+
+
+def get_switch_node(edit_op, dest_uuids):
+    '''
+    Create a router node with N cases as specified in the edit_op,
+    and N+1 categories and exits (one extra for the default option).
+
+    Args:
+        edit_op (:obj:`FlowEditOp`): has N categories.
+        dest_uuids: List of N+1 destination uuids to connect the exits to.
+            If the k-th case applies, the corresponding exit is connected
+            to the node with the k-th destination uuids. The last destination
+            uuid is for the default/other case.
+
+    Returns:
+        node
+    '''
+    cases = []
+    node_categories = []
+    exits = []
+    # For each category, make node case/category/exit
+    for dest_uuid, category in zip(dest_uuids[:-1], edit_op.categories()):
+        exit = {
+          "uuid": generate_random_uuid(),
+          "destination_uuid": dest_uuid
+        }
+        exits.append(exit)
+        node_category = {
+            "uuid": generate_random_uuid(),
+            "name": category.name,
+            "exit_uuid": exit["uuid"]
+        }
+        node_categories.append(node_category)
+        case = {
+            "uuid": generate_random_uuid(),
+            "type": category.condition_type,
+            "arguments": category.condition_arguments,
+            "category_uuid": node_category["uuid"]
+        }
+        cases.append(case)
+    # Add a default/other option
+    other_exit = {
+        "uuid": generate_random_uuid(),
+        "destination_uuid": dest_uuids[-1]
+    }
+    exits.append(other_exit)
+    other_category = {
+        "uuid": generate_random_uuid(),
+        "name": "Other",
+        "exit_uuid": other_exit["uuid"]
+    }
+    node_categories.append(other_category)
+    # Make the router and node
+    router = {
+        "type": "switch",
+        "cases": cases,
+        "categories": node_categories,
+        "default_category_uuid": other_category["uuid"],
+        "operand": edit_op.split_by(),
+        "result_name": ""
+    }
+    node = {
+        "uuid": generate_random_uuid(),
+        "actions": [],
+        "router": router,
+        "exits" : exits
+    }
+    return node
 
 
 def find_node_by_uuid(flow, node_uuid):
@@ -114,36 +185,42 @@ def find_node_by_uuid(flow, node_uuid):
     return None
 
 
-def apply_replace_bit_of_text(var, test_op):
+def replace_text_in_node(node, edit_op, replacement_text):
+    '''Modifies the input node.
+    '''
+    total_occurrences = 0
+    for action in node["actions"]:
+        if action["type"] == "send_msg":
+            text = action["text"]
+            total_occurrences += text.count(edit_op.bit_of_text())
+            text_new = text.replace(edit_op.bit_of_text(), replacement_text)
+            action["text"] = text_new
+
+    # TODO: If we don't just store the node uuid, but also action uuid
+    #   where edit_op is applicable, we could give more helpful
+    #   messages here by referring to the action text that doesn't match
+    if total_occurrences == 0:
+        # This might happen if we're trying to replace text that has
+        # already had a replacement applied to it.
+        logging.warning(edit_op.debug_string() + 'No occurrences of "{}" found node.'.format(edit_op.bit_of_text()))
+    if total_occurrences >= 2:
+        logging.warning(edit_op.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(edit_op.bit_of_text()))
+
+
+def apply_replace_bit_of_text(var, edit_op, replacement_text):
     '''Apply "replace_bit_of_text" operation on node variation.
 
     Leaves the input variation unaffected and returns a new variation.
 
     Args:
         var (`NodeVariation`): node to apply the operation to.
-        test_op (`ABTestOp`): Operation to be applied,
+        test_op (`FlowEditOp`): Operation to be applied,
             must be of type "replace_bit_of_text"
     '''
 
     # Take a copy of the original variation and replace action text.
     var_new = copy.deepcopy(var)
-    total_occurrences = 0
-    for action in var_new.node["actions"]:
-        if action["type"] == "send_msg":
-            text = action["text"]
-            total_occurrences += text.count(test_op.a_content())
-            text_new = text.replace(test_op.a_content(), test_op.b_content())
-            action["text"] = text_new
-
-    # TODO: If we don't just store the node uuid, but also action uuid
-    #   where test_op is applicable, we could give more helpful
-    #   messages here by referring to the action text that doesn't match
-    if total_occurrences == 0:
-        # This might happen if we're trying to replace text that has
-        # already had a replacement applied to it.
-        logging.warning(test_op.debug_string() + 'No occurrences of "{}" found node.'.format(test_op.a_content()))
-    if total_occurrences >= 2:
-        logging.warning(test_op.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(test_op.a_content()))
+    replace_text_in_node(var_new.node, edit_op, replacement_text)
 
     # Generate new uuids for everything that should have a unique one.
     # We don't have to worry about routers because nodes with a send_msg
@@ -169,7 +246,7 @@ def apply_replace_bit_of_text(var, test_op):
     return var_new
 
 
-def generate_node_variations(orig_node, test_ops):
+def generate_node_variations(orig_node, edit_ops):
     '''
     Generate 2^N versions of orig_node, one for each
     combination of A/B tests affecting this node.
@@ -182,8 +259,9 @@ def generate_node_variations(orig_node, test_ops):
     [Test1B, Test2A] and [Test1B, Test2B] respectively.
 
     Args:
-        orig_node: Node to create variations of.
-        test_ops (list of :obj:`ABTestOp`): Operations to apply to the node.
+        orig_node: Node to create variations of. This node will correspond to
+            the default case, and its message text may be modified.
+        edit_ops (list of :obj:`FlowEditOp`): Operations to apply to the node.
 
     Returns:
         list of :obj:`NodeVariation`: The generated node variations.
@@ -191,7 +269,7 @@ def generate_node_variations(orig_node, test_ops):
 
     # Start off with one variation: the original node.
     variations = [NodeVariation(orig_node, [])]
-    for op in test_ops:
+    for op in edit_ops:
         # Each test_op multiplies the number of variations by 2:
         # for each existing variations, we keep the original but also
         # create a new one with the additional test_op applied to it.
@@ -201,10 +279,20 @@ def generate_node_variations(orig_node, test_ops):
             # For each variation, create a new node with the op applied,
             # and add the original and modified version to new_variations.
             if op.op_type() == OpType.REPLACE_BIT_OF_TEXT:
-                var_new = apply_replace_bit_of_text(var, op)
-                var.groups.append(op.groupA())
-                var_new.groups.append(op.groupB())
-                new_variations += [var, var_new]
+                var_variations = []
+                for category in op.categories():
+                    var_new = apply_replace_bit_of_text(var, op, category.replacement_text)
+                    var_new.groups.append(category.name)
+                    var_variations.append(var_new)
+                # Original variation serves as default option
+                replace_text_in_node(var.node, op, op.default_text())
+                # For now, ditch the first variation in order to be consistent
+                # with the A/B testing implementation. TODO: Decide on design.
+                var.groups = var_variations[0].groups
+                new_variations += [var] + var_variations[1:]
+                # TODO: In the future, use this instead?
+                # var.groups += "Other"  # 
+                # new_variations += var_variations + [var]
         variations = new_variations
     return variations
 
@@ -233,7 +321,7 @@ def generate_group_membership_tree(test_ops, variations):
     for p in range(len(test_ops) - 1, -1, -1):
         copies = []
         for i in range(2**p):
-            copies.append(get_group_switch_node(test_ops[p], destination_uuids[2*i], destination_uuids[2*i+1]))
+            copies.append(get_group_switch_node(test_ops[p], destination_uuids[2*i:2*i+2]))
         destination_uuids = [node["uuid"] for node in copies]
         tree_nodes += copies
     return tree_nodes[-1]["uuid"], tree_nodes

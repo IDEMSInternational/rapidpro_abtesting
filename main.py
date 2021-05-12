@@ -11,9 +11,13 @@ CSVS = ["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"]
 JSON_FILENAME = "testdata/Linear_OneNodePerAction.json"
 OUTPUT_FILENAME = "out.json"
 
+SPREADSHEET_ID = '1t-hJkIoI9PaMKLefihQzyBw1GzTIW6RUawStQDielrk'  # Parenting
+JSON_FILENAME = "data/plh-international-flavour.json"
+OUTPUT_FILENAME = "out.json"
+
 def main():
-    # abtests = abtests_from_google_spreadsheet(SPREADSHEET_ID)
-    abtests = abtests_from_csvs(CSVS)
+    abtests = abtests_from_google_spreadsheet(SPREADSHEET_ID)
+    # abtests = abtests_from_csvs(CSVS)
     rpx = RapidProABTestCreator(JSON_FILENAME)
     rpx.apply_abtests(abtests)
     rpx.export_to_json(OUTPUT_FILENAME)

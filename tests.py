@@ -3,7 +3,7 @@ import json
 
 import node_tools as nt
 from abtest import ABTest, ABTestOp, OpType
-from rapidpro_abtest_creator import ContactGroup, RapidProABTestCreator
+from rapidpro_abtest_creator import RapidProABTestCreator
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
 from sheets import abtests_from_csvs
@@ -163,7 +163,7 @@ class TestNodeTools(unittest.TestCase):
         
         variation_matches = set()
         for var in variations:
-            var_groupnames = tuple(sorted({group.name for group in var.groups}))
+            var_groupnames = tuple(sorted({group for group in var.groups}))
             var_nodeuuid = var.node["uuid"]
             variation_matches.add((var_nodeuuid, var_groupnames))
 
@@ -171,7 +171,7 @@ class TestNodeTools(unittest.TestCase):
 
     # def test_get_group_switch_node(self):
     #     test_op = self.abtests[0].test_op(1)
-    #     switch = nt.get_group_switch_node(test_op, "dest1uuid", "dest2uuid")
+    #     switch = nt.get_group_switch_node(test_op, ["dest1uuid", "dest2uuid"])
     #     print(json.dumps(switch, indent=4))
 
     # def test_get_assign_to_group_gadget(self):
@@ -186,7 +186,10 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
         self.rpx = RapidProABTestCreator(filename)
 
     def make_minimal_test_op(self, flow_name, row_id, text_content):
-        return ABTestOp(None, [None, flow_name, row_id, text_content, "", "", False], "Debug_str")
+        dummy_group = ContactGroup(None, None)
+        dummy_group_pair = (dummy_group, dummy_group)
+        dummy_row = [None, flow_name, row_id, text_content, "", "", False]
+        return ABTestOp(dummy_group_pair, dummy_row, "Debug_str")
 
     def test_find_nodes(self):        
         # A valid node in given flow with given text
