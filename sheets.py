@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from abtest import ABTest
+from abtest import ABTest, FlowEditSheet
 import csv
 
 # If modifying these scopes, delete the file token.json.
@@ -80,6 +80,15 @@ def abtest_from_csv(filename):
 
 def abtests_from_csvs(filenames):
     return [abtest_from_csv(filename) for filename in filenames]
+
+
+def floweditsheet_from_csv(filename):
+    with open(filename, newline='') as f:
+        reader = csv.reader(f)
+        content = list(reader)
+    name = os.path.splitext(os.path.basename(filename))[0]
+    return FlowEditSheet(name, content)
+
 
 
 if __name__ == '__main__':

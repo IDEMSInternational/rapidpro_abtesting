@@ -9,10 +9,26 @@ import node_tools as nt
 # they are supposed to be unique?
 
 class Context(object):
-    def __init__(self, group_names, inputs, random_choices):
-        self.group_names = group_names
-        self.inputs = inputs
-        self.random_choices = random_choices
+    def __init__(self, group_names=None, inputs=None, random_choices=None, variables=None):
+        if group_names is not None:
+            self.group_names = group_names
+        else:
+            self.group_names = []
+
+        if inputs is not None:
+            self.inputs = inputs
+        else:
+            self.inputs = []
+
+        if random_choices is not None:
+            self.random_choices = random_choices
+        else:
+            self.random_choices = []
+
+        if variables is not None:
+            self.variables = variables
+        else:
+            self.variables = dict()
 
 
 def find_destination_uuid(current_node, context):
@@ -40,10 +56,13 @@ def find_destination_uuid(current_node, context):
                 operand = context.group_names
             elif router["operand"] == "@input.text":
                 operand = context.inputs.pop(0)
+            elif router["operand"] in context.variables:
+                operand = context.variables[router["operand"]]
             else:
                 operand = None
 
             # Find the case that applies here and get its category_uuid
+            # The arguments are not parse (e.g. no variable substitution)
             category_uuid = router["default_category_uuid"]  # The "Other" option (default)
             if operand is not None:
                 for case in router["cases"]:
@@ -53,12 +72,23 @@ def find_destination_uuid(current_node, context):
                             # Note: We ignore the Group UUID here.
                             category_uuid = case["category_uuid"]
                             break
+                    elif case["type"] == "has_phrase":
+                        if argument.lower() in operand.lower():
+                            category_uuid = case["category_uuid"]
+                            break
                     elif case["type"] == "has_any_word":
-                        # No variable substitution supported here
-                        for argument in case["arguments"]:
-                            if argument.lower() in operand.lower():
-                                category_uuid = case["category_uuid"]
-                                break
+                        matched = False
+                        for word in case["arguments"][0].split():
+                            for input_word in operand.split():
+                                if word.lower() == input_word.lower():
+                                    matched = True
+                        if matched:
+                            category_uuid = case["category_uuid"]
+                            break
+                    elif case["type"] == "has_text":
+                        if operand.strip() != "":
+                            category_uuid = case["category_uuid"]
+                            break
 
             # Find the category matching the case and get its exit_uuid
             exit_uuid = None
@@ -116,6 +146,11 @@ def traverse_flow(flow, context):
     as specified in group_names, which determine which path through
     the flow is taken.
 
+    Traversal ends once we reach an exit with destination_uuid None.
+
+    If we encounter a destination_uuid leading to a node not contained
+    in the flow, the flow is considered erroneous and an error is raised.
+
     Returns:
         A list of strings, which are the outputs of send_msg actions
         that are encounters while traversing through the flow.
@@ -145,7 +180,11 @@ def traverse_flow(flow, context):
                 # action["flow"]["uuid"]
                 pass
         destination_uuid = find_destination_uuid(current_node, context)
+        if destination_uuid is None:  # we've reached the exit
+            break
         current_node = nt.find_node_by_uuid(flow, destination_uuid)
+        if current_node is None:
+            raise ValueError("Destination_uuid {} is invalid.".format(destination_uuid))
     return outputs
 
 

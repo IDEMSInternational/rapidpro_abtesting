@@ -286,13 +286,16 @@ def generate_node_variations(orig_node, edit_ops):
                     var_variations.append(var_new)
                 # Original variation serves as default option
                 replace_text_in_node(var.node, op, op.default_text())
-                # For now, ditch the first variation in order to be consistent
-                # with the A/B testing implementation. TODO: Decide on design.
-                var.groups = var_variations[0].groups
-                new_variations += [var] + var_variations[1:]
-                # TODO: In the future, use this instead?
-                # var.groups += "Other"  # 
-                # new_variations += var_variations + [var]
+
+                if op.has_node_for_other_category():
+                    # Original node becomes the "Other" variation
+                    var.groups += "Other"  # 
+                    new_variations += var_variations + [var]
+                else:
+                    # Ditch the first variation and use the original instead.
+                    # No variation for the "Other" category is added.
+                    var.groups = var_variations[0].groups
+                    new_variations += [var] + var_variations[1:]
         variations = new_variations
     return variations
 
@@ -314,17 +317,35 @@ def generate_group_membership_tree(test_ops, variations):
         list of nodes of the tree; the last node is the root.
     '''
 
-    destination_uuids = [variation.node["uuid"] for variation in variations]
+    edit_op = test_ops[0]
+    if len(test_ops) == 1:
+        destination_uuids = [variation.node["uuid"] for variation in variations]
+        if not edit_op.has_node_for_other_category():
+            # reroute "Other" category to last proper category
+            destination_uuids.append(destination_uuids[-1])
+        switch = get_group_switch_node(edit_op, destination_uuids)
+        return switch["uuid"], [switch]
 
-    tree_nodes = []
-    # Traverse the group pairs back to front; we build the tree bottom to top.
-    for p in range(len(test_ops) - 1, -1, -1):
-        copies = []
-        for i in range(2**p):
-            copies.append(get_group_switch_node(test_ops[p], destination_uuids[2*i:2*i+2]))
-        destination_uuids = [node["uuid"] for node in copies]
-        tree_nodes += copies
-    return tree_nodes[-1]["uuid"], tree_nodes
+    n_variations = len(variations)
+    if edit_op.has_node_for_other_category():
+        n_categories = len(edit_op.categories()) + 1
+    else:
+        n_categories = len(edit_op.categories())
+
+    all_switches = []
+    destination_uuids = []
+    for i in range(n_categories):
+        first_var_index = i * n_variations // n_categories
+        last_var_index = (i+1) * n_variations // n_categories
+        root_uuid, switches = generate_group_membership_tree(test_ops[1:], variations[first_var_index:last_var_index])
+        destination_uuids.append(root_uuid)
+        all_switches += switches
+    if not edit_op.has_node_for_other_category():
+        # reroute "Other" category to last proper category
+        destination_uuids.append(destination_uuids[-1])
+    root_switch = get_group_switch_node(edit_op, destination_uuids)
+    all_switches.append(root_switch)
+    return root_switch["uuid"], all_switches
 
 
 def find_incoming_edges(flow, uuid):

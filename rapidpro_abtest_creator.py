@@ -3,7 +3,7 @@ import copy
 import logging
 from collections import defaultdict
 import node_tools as nt
-from abtest import ABTest, ABTestOp
+from abtest import ABTest, FlowEditSheet
 from uuid_tools import generate_random_uuid
 from contact_group import ContactGroup
 
@@ -97,7 +97,7 @@ class RapidProABTestCreator(object):
 
         Args:
             node_uuid: uuid of the node in front of which to assign the gadget
-            test_op (`ABTestOp`): specifies the relevant A/B testing group.
+            test_op (`FlowEditOp`): specifies the relevant A/B testing group.
         '''
 
         flow, node = self.find_node_by_uuid(node_uuid)
@@ -118,10 +118,15 @@ class RapidProABTestCreator(object):
         '''
         Apply test_ops to a given node.
 
+        In the process, the flow is modified.
+
+        If the flow is in a consistent state before applying the test_ops,
+        it will be in a consistent state afterwards.
+
         Args:
             flow: flow the node belongs to
             node: node to apply test_ops to
-            test_ops (`ABTestOp`):
+            test_ops (`FlowEditOp`):
         '''
 
         # TODO: There could be multiple ops from the same A/B test
@@ -131,8 +136,9 @@ class RapidProABTestCreator(object):
         incoming_edges = nt.find_incoming_edges(flow, uuid)
 
         # Generate test-specific node variations and add them to flow.
+        flow["nodes"].remove(node)
         variations = nt.generate_node_variations(node, test_ops)
-        flow["nodes"] += [variation.node for variation in variations[1:]]
+        flow["nodes"] += [variation.node for variation in variations]
 
         # Generate group membership tree and add its nodes to flow
         root_uuid, tree_nodes = nt.generate_group_membership_tree(test_ops, variations)
@@ -148,7 +154,7 @@ class RapidProABTestCreator(object):
             edge["destination_uuid"] = root_uuid
 
 
-    def apply_abtests(self, abtests):
+    def apply_abtests(self, floweditsheets):
         '''Modify the internal RapidPro flow data by apply the A/B tests.'''
 
         # List of pairs of node uuids and test_ops, each pair indicating that
@@ -156,14 +162,15 @@ class RapidProABTestCreator(object):
         # `ContactGroup`s for the A/B test the test_op belongs to
         assign_to_group_ops = []
         # Dictionary mapping each node (indexed by uuid) to the list of
-        # `ABTestOp`s that should be applied to the node.
+        # `FlowEditOp`s that should be applied to the node.
         test_ops_by_node = defaultdict(list)
 
         # Find nodes affected by A/B tests in some way
-        for abtest in abtests:
-            self.data_["groups"].append(abtest.groupA().to_json_group())
-            self.data_["groups"].append(abtest.groupB().to_json_group())
-            for test_op in abtest.test_ops():
+        for sheet in floweditsheets:
+            if isinstance(sheet, ABTest):  # inelegant hack
+                self.data_["groups"].append(sheet.groupA().to_json_group())
+                self.data_["groups"].append(sheet.groupB().to_json_group())
+            for test_op in sheet.edit_ops():
                 uuids = self.find_nodes_by_content(test_op)
                 if len(uuids) == 0:
                     logging.warning(test_op.debug_string() + "No node found where operation is applicable.")
@@ -181,7 +188,9 @@ class RapidProABTestCreator(object):
 
         # For each nodes affected by A/B tests, apply the test operations
         for flow in self.data_["flows"]:
-            for node in flow["nodes"]:
+            # Iterate over copy of node list because the real list of nodes
+            # is modified in the process.
+            for node in copy.copy(flow["nodes"]):
                 if node["uuid"] in test_ops_by_node:
                     test_op = test_ops_by_node[node["uuid"]]
                     self.apply_testops_to_node(flow, node, test_op)

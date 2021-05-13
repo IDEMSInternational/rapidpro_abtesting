@@ -2,6 +2,7 @@ from contact_group import ContactGroup
 import copy
 from enum import Enum
 import logging
+from abc import ABC, abstractmethod
 
 # Column indices
 TYPE = 0
@@ -21,6 +22,11 @@ class OpType(Enum):
     REPLACE_BIT_OF_TEXT = 1
 
 
+fixed_cols = ["type", "flow_id", "row_id", "original_message", "bit_of_text", "split_by", "category"]
+category_prefixes = ["category:", "condition:", "condition_type:"]
+N_FIXED_COLS = len(fixed_cols)
+N_CATEGORY_PREFIXES = len(category_prefixes)
+
 class SwitchCategory(object):
     def __init__(self, name, condition_type, condition_arguments, replacement_text):
         self.name = name
@@ -29,9 +35,111 @@ class SwitchCategory(object):
          # -- note: has_group has uuid and name in arg list.
          #    Fill in uuid upon construction.
         self.replacement_text = replacement_text
+ 
+
+class FlowSheet(ABC):
+    @abstractmethod
+    def edit_ops(self):
+        pass
+
+    @abstractmethod
+    def edit_op(self, index):
+        pass
 
 
-class ABTest(object):
+class FlowEditSheet(FlowSheet):
+    op_types = {"replace_bit_of_text" : OpType.REPLACE_BIT_OF_TEXT}
+
+    def __init__(self, name, rows):
+        '''
+        Args:
+            name (str): Name of the A/B test.
+            rows (list of list): list of operations to be applied.
+        '''
+
+        self._name = name
+        self._edit_ops = [] # Store ABTestOps instead of rows
+        self._category_names = self._get_category_names(rows[0])
+        if self._category_names is None:
+            logging.warning('Omitting FlowEditSheet {}.'.format(name))
+            return
+
+        for i,row in enumerate(rows[1:]):
+            edit_op = self._row_to_floweditop(row, i)
+            if edit_op is not None:
+                self._edit_ops.append(edit_op)
+
+
+    def _get_category_names(self, row):
+        if row[:N_FIXED_COLS] != fixed_cols:
+            logging.warning('FlowEditSheet {} has invalid main header.'.format(self._name))
+            return None
+
+        category_names = []
+        for cid in range(N_FIXED_COLS, len(row), N_CATEGORY_PREFIXES):
+            valid_prefixes = True
+            names = []
+            for col, prefix in zip(row[cid:cid+N_CATEGORY_PREFIXES], category_prefixes):
+                if col.startswith(prefix):
+                    names.append(col[len(prefix):])
+                else:
+                    valid_prefixes = False
+                    break
+            if not valid_prefixes:
+                logging.warning('FlowEditSheet {} has invalid category header.'.format(self._name))
+                return None
+            if len(set(names)) != 1:
+                logging.warning('FlowEditSheet {} has category with inconsistent name in header row.'.format(self._name))
+                return None
+            category_names.append(names[0])
+
+        if len(category_names) == 0:
+            logging.warning('FlowEditSheet {} has no category in header row.'.format(self._name))
+            return None
+        return category_names
+
+
+    def _row_to_floweditop(self, row, index):
+        row_new = copy.deepcopy(row)
+        debug_string = 'FlowEditSheet {} row {}: '.format(self._name, index+2)
+
+        if len(row) < N_FIXED_COLS + N_CATEGORY_PREFIXES * len(self._category_names):
+            logging.warning(debug_string + 'too few entries.')
+            return None
+
+        # TODO: Factor out row_id and type duplicate code?
+        if row[TYPE] in FlowEditSheet.op_types:
+            row_new[TYPE] = FlowEditSheet.op_types[row[TYPE]]
+        else:
+            logging.warning(debug_string + 'invalid type.')
+            return None
+
+        try:  # Convert ROW_ID to int
+            row_new[ROW_ID] = int(row[ROW_ID])
+        except ValueError:
+            row_new[ROW_ID] = -1
+            # TODO: Log a warning once we use the ROW_ID
+
+        # No validity check for split_by argument as parsing is non-trivial!
+        edit_op = FlowEditOp(row_new, row[SPLIT_BY], row[DEFAULT_TEXT], debug_string)
+
+        for i, name in enumerate(self._category_names):
+            # TODO: validate condition_type
+            condition_type = row[N_FIXED_COLS + N_CATEGORY_PREFIXES * i + 2]
+            condition_arguments = [row[N_FIXED_COLS + N_CATEGORY_PREFIXES * i + 1]]
+            replacement_text = row[N_FIXED_COLS + N_CATEGORY_PREFIXES * i]
+            category = SwitchCategory(name, condition_type, condition_arguments, replacement_text)
+            edit_op.add_category(category)
+        return edit_op
+
+    def edit_ops(self):
+        return self._edit_ops
+
+    def edit_op(self, index):
+        return self._edit_ops[index]
+
+
+class ABTest(FlowSheet):
     '''
     An A/B test to be applied to RapidPro flow(s).
 
@@ -51,27 +159,27 @@ class ABTest(object):
             rows (list of list): list of operations to be applied.
         '''
 
-        self.name_ = name
-        groupA = ContactGroup("ABTest_" + self.name_ + "_A")
-        groupB = ContactGroup("ABTest_" + self.name_ + "_B")
+        self._name = name
+        groupA = ContactGroup("ABTest_" + self._name + "_A")
+        groupB = ContactGroup("ABTest_" + self._name + "_B")
         self.group_pair_ = (groupA, groupB)
         self.test_ops_ = [] # Store ABTestOps instead of rows
-        if not self.validate_header_row(rows[0]):
+        if not self._validate_header_row(rows[0]):
             logging.warning('ABTest {} has invalid header.'.format(name))
             return
 
         for i,row in enumerate(rows[1:]):
-            test_op = self.row_to_abtestop(row, i)
+            test_op = self._row_to_abtestop(row, i)
             if test_op is not None:
                 self.test_ops_.append(test_op)
 
-    def validate_header_row(self, row):
+    def _validate_header_row(self, row):
         if len(row) < ASSIGN_TO_GROUP:
             return False
         return row[TYPE] == "type" and row[FLOW_ID] == "flow_id" and row[ROW_ID] == "row_id" and row[ORIG_MSG] == "original_message" and row[A_CONTENT] == "a_content(original)" and row[B_CONTENT] == "b_content"
         # We don't require row[ASSIGN_TO_GROUP] == "assign_to_group"
 
-    def row_to_abtestop(self, row, index):
+    def _row_to_abtestop(self, row, index):
         '''Convert the spreadsheet row into an ABTestOp.
 
         Tries to fix minor mistakes in the process.
@@ -79,7 +187,7 @@ class ABTest(object):
         '''
 
         row_new = copy.deepcopy(row)
-        debug_string = 'ABTest {} row {}: '.format(self.name_, index+2)
+        debug_string = 'ABTest {} row {}: '.format(self._name, index+2)
 
         if len(row) < ASSIGN_TO_GROUP:
             logging.warning(debug_string + 'too few entries.')
@@ -118,10 +226,10 @@ class ABTest(object):
     def group_pair(self):
         return self.group_pair_
 
-    def test_ops(self):
+    def edit_ops(self):
         return self.test_ops_
 
-    def test_op(self, index):
+    def edit_op(self, index):
         return self.test_ops_[index]
 
 
@@ -171,6 +279,9 @@ class FlowEditOp(object):
     def assign_to_group(self):
         return False
 
+    def has_node_for_other_category(self):
+        return True
+
 
 class ABTestOp(FlowEditOp):
     '''
@@ -212,3 +323,6 @@ class ABTestOp(FlowEditOp):
 
     def assign_to_group(self):
         return self._assign_to_group
+
+    def has_node_for_other_category(self):
+        return False

@@ -6,7 +6,7 @@ from abtest import ABTest, ABTestOp, OpType
 from rapidpro_abtest_creator import RapidProABTestCreator
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
-from sheets import abtests_from_csvs
+from sheets import abtests_from_csvs, floweditsheet_from_csv
 from contact_group import ContactGroup
 import logging
 
@@ -89,8 +89,8 @@ class TestNodeTools(unittest.TestCase):
 
     def test_generate_node_variations(self):
         test_ops = [
-            self.abtests[0].test_op(1),
-            self.abtests[1].test_op(0),
+            self.abtests[0].edit_op(1),
+            self.abtests[1].edit_op(0),
         ]
 
         variations = nt.generate_node_variations(test_node, test_ops)
@@ -111,8 +111,8 @@ class TestNodeTools(unittest.TestCase):
 
     def test_generate_node_variations_multiple_actions(self):
         test_ops = [
-            self.abtests[0].test_op(0),
-            self.abtests[1].test_op(0),
+            self.abtests[0].edit_op(0),
+            self.abtests[1].edit_op(0),
         ]
 
         variations = nt.generate_node_variations(test_node_3actions, test_ops)
@@ -135,8 +135,8 @@ class TestNodeTools(unittest.TestCase):
 
     def test_generate_group_membership_tree(self):
         test_ops = [
-            self.abtests[0].test_op(1),
-            self.abtests[1].test_op(0),
+            self.abtests[0].edit_op(1),
+            self.abtests[1].edit_op(0),
         ]
 
         variations = nt.generate_node_variations(test_node, test_ops)
@@ -170,12 +170,12 @@ class TestNodeTools(unittest.TestCase):
         self.assertEqual(tree_matches, variation_matches)
 
     # def test_get_group_switch_node(self):
-    #     test_op = self.abtests[0].test_op(1)
+    #     test_op = self.abtests[0].edit_op(1)
     #     switch = nt.get_group_switch_node(test_op, ["dest1uuid", "dest2uuid"])
     #     print(json.dumps(switch, indent=4))
 
     # def test_get_assign_to_group_gadget(self):
-    #     test_op = self.abtests[0].test_op(1)
+    #     test_op = self.abtests[0].edit_op(1)
     #     switch = nt.get_assign_to_group_gadget(test_op, "destuuid")
     #     print(json.dumps(switch, indent=4))
 
@@ -260,15 +260,15 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         # Traverse the flow with different group memberships and check the sent messages.
         flows = rpx.data_["flows"][0]
         groupsAA = [self.abtests[0].groupA().name, self.abtests[1].groupA().name]
-        msgs1 = traverse_flow(flows, Context(groupsAA, [], []))
+        msgs1 = traverse_flow(flows, Context(groupsAA))
         self.assertEqual(msgs1, exp1)
         groupsAB = [self.abtests[0].groupA().name, self.abtests[1].groupB().name]
-        msgs2 = traverse_flow(flows, Context(groupsAB, [], []))
+        msgs2 = traverse_flow(flows, Context(groupsAB))
         self.assertEqual(msgs2, exp2)
         groupsBB = [self.abtests[0].groupB().name, self.abtests[1].groupB().name]
-        msgs3 = traverse_flow(flows, Context(groupsBB, [], []))
+        msgs3 = traverse_flow(flows, Context(groupsBB))
         self.assertEqual(msgs3, exp3)
-        msgs4 = traverse_flow(flows, Context([], [], []))  # "Other" branch. Should be same as msgs3
+        msgs4 = traverse_flow(flows, Context())  # "Other" branch. Should be same as msgs3
         self.assertEqual(msgs4, exp4)
 
 
@@ -352,6 +352,66 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         groups1 = []
         output1 = traverse_flow(self.flows, Context(groups1, ["otter", "otter"], [1]))
         self.assertEqual(output1, exp1)
+
+
+
+class TestRapidProEditsLinear(unittest.TestCase):
+    def setUp(self):
+        sheet1 = floweditsheet_from_csv("testdata/FlowEdit1_Gender.csv")
+        sheet2 = floweditsheet_from_csv("testdata/FlowEdit2_Some1337.csv")
+        self.floweditsheets = [sheet1, sheet2]
+
+    def test_apply_abtests_linear_onenodeperaction(self):
+        filename = "testdata/Linear_OneNodePerAction.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+        self.evaluate_result(rpx)
+
+    def test_apply_abtests_linear_onenode4actions(self):
+        filename = "testdata/Linear_OneNode4Actions.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+        self.evaluate_result(rpx)
+
+    def evaluate_result(self, rpx):
+        exp1 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my person!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp2 = [
+            ('send_msg', 'The first personalizable message, my gal!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng, my gal!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp3 = [
+            ('send_msg', 'The first personalizable message, my dude!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my dude!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp4 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng, my person!'),
+            ('send_msg', 'This is a test.'),
+        ]
+
+        # Traverse the flow with different group memberships and check the sent messages.
+        flows = rpx.data_["flows"][0]
+        msgs1 = traverse_flow(flows, Context())
+        self.assertEqual(msgs1, exp1)
+        variables2 = {"@fields.gender" : "woman", "@fields.likes_1337" : "yes"}
+        msgs2 = traverse_flow(flows, Context(variables=variables2))
+        self.assertEqual(msgs2, exp2)
+        variables3 = {"@fields.gender" : "man", "@fields.likes_1337" : ""}
+        msgs3 = traverse_flow(flows, Context(variables=variables3))
+        self.assertEqual(msgs3, exp3)
+        variables4 = {"@fields.gender" : "child", "@fields.likes_1337" : "yossss"}
+        msgs4 = traverse_flow(flows, Context(variables=variables4))
+        self.assertEqual(msgs4, exp4)
 
 
 if __name__ == '__main__':

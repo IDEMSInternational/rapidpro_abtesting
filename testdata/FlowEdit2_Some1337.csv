@@ -1,0 +1,2 @@
+type,flow_id,row_id,original_message,bit_of_text,split_by,category,category:leetified,condition:leetified,condition_type:leetified
+replace_bit_of_text,ABTesting_Pre,3,Good morning!,Good morning,@fields.likes_1337,Good morning,g00d m0rn1ng,,has_text
