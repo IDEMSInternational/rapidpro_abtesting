@@ -6,7 +6,8 @@ from abtest import ABTest, ABTestOp, OpType
 from rapidpro_abtest_creator import RapidProABTestCreator
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
-from sheets import abtests_from_csvs, floweditsheet_from_csv
+from sheets import abtest_from_csv, floweditsheet_from_csv
+from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
 import logging
 
@@ -84,7 +85,9 @@ class TestNodeTools(unittest.TestCase):
         with open(filename, "r") as rpfile:
             self.rp_json = json.load(rpfile)
             self.flow = self.rp_json["flows"][0]
-        self.abtests = abtests_from_csvs(["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"])
+        abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
+        abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        self.abtests = [abtest1, abtest2]
 
 
     def test_generate_node_variations(self):
@@ -205,7 +208,9 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
 
 class TestRapidProABTestCreatorLinear(unittest.TestCase):
     def setUp(self):
-        self.abtests = abtests_from_csvs(["testdata/Test1_Personalization.csv", "testdata/Test2_Some1337.csv"])
+        abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
+        abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        self.abtests = [abtest1, abtest2]
 
     def test_apply_abtests_linear_onenodeperaction(self):
         filename = "testdata/Linear_OneNodePerAction.json"
@@ -274,7 +279,7 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
 
 class TestRapidProABTestCreatorBranching(unittest.TestCase):
     def setUp(self):
-        self.abtests = abtests_from_csvs(["testdata/Branching.csv"])
+        self.abtests = [abtest_from_csv("testdata/Branching.csv")]
         self.groupA_name = self.abtests[0].groupA().name
         self.groupB_name = self.abtests[0].groupB().name
         filename = "testdata/Branching.json"
@@ -411,6 +416,66 @@ class TestRapidProEditsLinear(unittest.TestCase):
         self.assertEqual(msgs3, exp3)
         variables4 = {"@fields.gender" : "child", "@fields.likes_1337" : "yossss"}
         msgs4 = traverse_flow(flows, Context(variables=variables4))
+        self.assertEqual(msgs4, exp4)
+
+
+class TestMasterSheet(unittest.TestCase):
+    def setUp(self):
+        parser = CSVMasterSheetParser("testdata/master_sheet.csv")
+        self.floweditsheets = parser.get_flow_edit_sheets()
+        self.groupA_name = self.floweditsheets[-1].groupA().name
+        self.groupB_name = self.floweditsheets[-1].groupB().name
+
+    def test_apply_abtests_linear_onenodeperaction(self):
+        filename = "testdata/Linear_OneNodePerAction.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+        self.evaluate_result(rpx)
+
+    def test_apply_abtests_linear_onenode4actions(self):
+        filename = "testdata/Linear_OneNode4Actions.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+        self.evaluate_result(rpx)
+
+    def evaluate_result(self, rpx):
+        exp1 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my person!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp2 = [
+            ('send_msg', 'The first personalizable message, my gal!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng, my gal!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp3 = [
+            ('send_msg', 'The first personalizable message, my dude!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my dude!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp4 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng, my person!'),
+            ('send_msg', 'This is a test.'),
+        ]
+
+        # Traverse the flow with different group memberships and check the sent messages.
+        flows = rpx.data_["flows"][0]
+        msgs1 = traverse_flow(flows, Context([self.groupA_name]))
+        self.assertEqual(msgs1, exp1)
+        variables2 = {"@fields.gender" : "woman"}
+        msgs2 = traverse_flow(flows, Context([self.groupB_name], variables=variables2))
+        self.assertEqual(msgs2, exp2)
+        variables3 = {"@fields.gender" : "man"}
+        msgs3 = traverse_flow(flows, Context([self.groupA_name], variables=variables3))
+        self.assertEqual(msgs3, exp3)
+        variables4 = {"@fields.gender" : "child"}
+        msgs4 = traverse_flow(flows, Context([self.groupB_name], variables=variables4))
         self.assertEqual(msgs4, exp4)
 
 

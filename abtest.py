@@ -312,14 +312,14 @@ class ABTestOp(FlowEditOp):
         return ContactGroup(self._categories[1].condition_arguments[1], 
                             self._categories[1].condition_arguments[0]) 
 
-    def group_pair(self):
-        return (self.groupA(), self.groupB())
+    # def group_pair(self):
+    #     return (self.groupA(), self.groupB())
 
-    def a_content(self):
-        return self._categories[0].replacement_text
+    # def a_content(self):
+    #     return self._categories[0].replacement_text
 
-    def b_content(self):
-        return self._categories[1].replacement_text
+    # def b_content(self):
+    #     return self._categories[1].replacement_text
 
     def assign_to_group(self):
         return self._assign_to_group
