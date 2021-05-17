@@ -1,6 +1,5 @@
 import json
 
-from abtest import ABTest
 from rapidpro_abtest_creator import RapidProABTestCreator
 from sheets import CSVMasterSheetParser, GoogleMasterSheetParser
 import logging

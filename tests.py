@@ -2,14 +2,16 @@ import unittest
 import json
 
 import node_tools as nt
-from abtest import ABTest, ABTestOp, OpType
-from rapidpro_abtest_creator import RapidProABTestCreator
+from abtest import ABTest
+from rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
 from sheets import abtest_from_csv, floweditsheet_from_csv
 from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
+from operations import FlowEditOp
 import logging
+import copy
 
 logging.basicConfig(filename='tests.log', level=logging.WARNING, filemode='w')
 
@@ -81,14 +83,102 @@ test_node_3actions = {
 
 class TestNodeTools(unittest.TestCase):
     def setUp(self):
+        abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
+        abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        self.abtests = [abtest1, abtest2]
+        self.floweditsheet = floweditsheet_from_csv("testdata/FlowEdit1_Gender.csv")
+
+    def test_get_group_switch_node(self):
+        test_op = self.abtests[0].edit_op(1)
+        switch = nt.get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest2uuid"])
+        flow = {"nodes" : [switch]}
+        dest1 = find_final_destination(flow, switch, Context([self.abtests[0].groupA().name]))
+        dest2 = find_final_destination(flow, switch, Context([self.abtests[0].groupB().name]))
+        dest3 = find_final_destination(flow, switch, Context())
+        self.assertEqual(dest1, "dest1uuid")
+        self.assertEqual(dest2, "dest2uuid")
+        self.assertEqual(dest3, "dest2uuid")
+        # print(json.dumps(switch, indent=4))
+
+    def test_get_switch_node(self):
+        test_op = self.floweditsheet.edit_op(0)
+        switch = nt.get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest3uuid"])
+        flow = {"nodes" : [switch]}
+        dest1 = find_final_destination(flow, switch, Context(variables={"@fields.gender" : "man"}))
+        dest2 = find_final_destination(flow, switch, Context(variables={"@fields.gender" : "woman"}))
+        dest3 = find_final_destination(flow, switch, Context(variables={"@fields.gender" : "something"}))
+        dest4 = find_final_destination(flow, switch, Context())
+        self.assertEqual(dest1, "dest1uuid")
+        self.assertEqual(dest2, "dest2uuid")
+        self.assertEqual(dest3, "dest3uuid")
+        self.assertEqual(dest4, "dest3uuid")
+        # print(json.dumps(switch, indent=4))
+
+    def test_get_assign_to_group_gadget(self):
+        gadget = nt.get_assign_to_group_gadget("GAname", "GAuuid", "GBname", "BGuuid", "destuuid")
+        flow = {"nodes" : gadget}
+        context1 = Context(random_choices=[0])
+        find_final_destination(flow, gadget[0], context1)
+        self.assertEqual(len(context1.group_names), 1)
+        self.assertEqual(context1.group_names[0], "GAname")
+        context2 = Context(random_choices=[1])
+        find_final_destination(flow, gadget[0], context2)
+        self.assertEqual(len(context2.group_names), 1)
+        self.assertEqual(context2.group_names[0], "GBname")
+        # print(json.dumps(gadget, indent=4))
+
+
+class TestOperations(unittest.TestCase):
+    def setUp(self):
+        abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
+        abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        self.abtests = [abtest1, abtest2]
+        # Same as test_node, but with exit pointing to None.
+        self.test_node_x = copy.deepcopy(test_node)
+        self.test_node_x["exits"][0]["destination_uuid"] = None
+
+    def test_apply_operation(self):
+        edit_op = self.abtests[1].edit_op(0)  # Careful about indexing here.
+        flow_snippet = edit_op._get_flow_snippet(self.test_node_x)
+        self.assertEqual(len(flow_snippet.node_variations()), 2)
+        self.assertEqual(flow_snippet.node_variations()[0], self.test_node_x)  # First node should be original
+
+        # Turn snippet into complete flow and simulate it.
+        flow = {"nodes" : flow_snippet.nodes()}
+        groupsA = [self.abtests[1].groupA().name]
+        msgs1 = traverse_flow(flow, Context(groupsA))
+        self.assertEqual(msgs1, [('send_msg', 'Good morning!')])
+        groupsB = [self.abtests[1].groupB().name]
+        msgs2 = traverse_flow(flow, Context(groupsB))
+        self.assertEqual(msgs2, [('send_msg', 'g00d m0rn1ng!')])
+        msgs3 = traverse_flow(flow, Context())
+        self.assertEqual(msgs3, [('send_msg', 'g00d m0rn1ng!')])
+
+
+class TestRapidProABTestCreatorMethods(unittest.TestCase):
+    def setUp(self):
         filename = "testdata/Linear_OneNodePerAction.json"
-        with open(filename, "r") as rpfile:
-            self.rp_json = json.load(rpfile)
-            self.flow = self.rp_json["flows"][0]
+        self.rpx = RapidProABTestCreator(filename)
         abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
         abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
         self.abtests = [abtest1, abtest2]
 
+    def make_minimal_test_op(self, flow_name, row_id, text_content):
+        dummy_group = ContactGroup(None, None)
+        dummy_group_pair = (dummy_group, dummy_group)
+        dummy_row = [None, flow_name, row_id, text_content, "", "", "", ""]
+        return FlowEditOp.create_edit_op("replace_bit_of_text", dummy_row, "Debug_str")
+
+    def test_find_nodes(self):        
+        # A valid node in given flow with given text
+        nodes1 = self.rpx._find_matching_nodes(self.make_minimal_test_op("ABTesting_Pre", -1, 'Good morning!'))
+        self.assertEqual(nodes1, ['aa0028ce-6f67-4313-bdc1-c2dd249a227d'])
+        # non-existing node text
+        nodes2 = self.rpx._find_matching_nodes(self.make_minimal_test_op("ABTesting_Pre", -1, 'LOL!'))
+        self.assertEqual(nodes2, [])
+        # non-existing flow name
+        nodes3 = self.rpx._find_matching_nodes(self.make_minimal_test_op("Trololo", -1, 'Good morning!'))
+        self.assertEqual(nodes3, [])
 
     def test_generate_node_variations(self):
         test_ops = [
@@ -96,9 +186,9 @@ class TestNodeTools(unittest.TestCase):
             self.abtests[1].edit_op(0),
         ]
 
-        variations = nt.generate_node_variations(test_node, test_ops)
-        nodes = [variation.node for variation in variations]
-        self.assertEqual(len(variations), 4)
+        flow = {"nodes" : [copy.deepcopy(test_node)]}
+        nodes = apply_editops_to_node(flow, flow["nodes"][0], test_ops)
+        self.assertEqual(len(nodes), 4)
         self.assertEqual(nodes[0], test_node)  # First node should be original
         self.assertEqual(nodes[1]["actions"][0]["text"], "g00d m0rn1ng!")
         self.assertEqual(nodes[2]["actions"][0]["text"], "Good morning, Steve!")
@@ -118,8 +208,8 @@ class TestNodeTools(unittest.TestCase):
             self.abtests[1].edit_op(0),
         ]
 
-        variations = nt.generate_node_variations(test_node_3actions, test_ops)
-        nodes = [variation.node for variation in variations]
+        flow = {"nodes" : [copy.deepcopy(test_node_3actions)]}
+        nodes = apply_editops_to_node(flow, flow["nodes"][0], test_ops)
         self.assertEqual(nodes[0], test_node_3actions)  # First node should be original
         self.assertEqual(nodes[1]["actions"][0]["text"], "The first personalizable message.")
         self.assertEqual(nodes[2]["actions"][0]["text"], "The first personalizable message, Steve!")
@@ -134,76 +224,6 @@ class TestNodeTools(unittest.TestCase):
         self.assertNotEqual(test_node_3actions["actions"][1]["uuid"], nodes[1]["actions"][1]["uuid"])
         self.assertNotEqual(test_node_3actions["actions"][2]["uuid"], nodes[1]["actions"][2]["uuid"])
         self.assertNotEqual(test_node_3actions["actions"][1]["templating"]["uuid"], nodes[1]["actions"][1]["templating"]["uuid"])
-
-
-    def test_generate_group_membership_tree(self):
-        test_ops = [
-            self.abtests[0].edit_op(1),
-            self.abtests[1].edit_op(0),
-        ]
-
-        variations = nt.generate_node_variations(test_node, test_ops)
-        root_uuid, tree_nodes = nt.generate_group_membership_tree(test_ops, variations)
-        flow = {"nodes" : tree_nodes}
-        root_node = nt.find_node_by_uuid(flow, root_uuid)
-        # print(json.dumps(tree_nodes, indent=4))
-
-        # Check that the branches of the tree lead to the correct variations.
-        groupnamesAA = [test_ops[0].groupA().name, test_ops[1].groupA().name]
-        groupnamesAB = [test_ops[0].groupA().name, test_ops[1].groupB().name]
-        groupnamesBA = [test_ops[0].groupB().name, test_ops[1].groupA().name]
-        groupnamesBB = [test_ops[0].groupB().name, test_ops[1].groupB().name]
-        destAA = find_final_destination(flow, root_node, Context(groupnamesAA, [], []))
-        destAB = find_final_destination(flow, root_node, Context(groupnamesAB, [], []))
-        destBA = find_final_destination(flow, root_node, Context(groupnamesBA, [], []))
-        destBB = find_final_destination(flow, root_node, Context(groupnamesBB, [], []))
-        # Get unique, hashable representations of the groupname/destination pairs
-        treeAA = (destAA, tuple(sorted(set(groupnamesAA))))
-        treeAB = (destAB, tuple(sorted(set(groupnamesAB))))
-        treeBA = (destBA, tuple(sorted(set(groupnamesBA))))
-        treeBB = (destBB, tuple(sorted(set(groupnamesBB))))
-        tree_matches = {treeAA, treeAB, treeBA, treeBB}
-        
-        variation_matches = set()
-        for var in variations:
-            var_groupnames = tuple(sorted({group for group in var.groups}))
-            var_nodeuuid = var.node["uuid"]
-            variation_matches.add((var_nodeuuid, var_groupnames))
-
-        self.assertEqual(tree_matches, variation_matches)
-
-    # def test_get_group_switch_node(self):
-    #     test_op = self.abtests[0].edit_op(1)
-    #     switch = nt.get_group_switch_node(test_op, ["dest1uuid", "dest2uuid"])
-    #     print(json.dumps(switch, indent=4))
-
-    # def test_get_assign_to_group_gadget(self):
-    #     test_op = self.abtests[0].edit_op(1)
-    #     switch = nt.get_assign_to_group_gadget(test_op, "destuuid")
-    #     print(json.dumps(switch, indent=4))
-
-
-class TestRapidProABTestCreatorMethods(unittest.TestCase):
-    def setUp(self):
-        filename = "testdata/Linear_OneNodePerAction.json"
-        self.rpx = RapidProABTestCreator(filename)
-
-    def make_minimal_test_op(self, flow_name, row_id, text_content):
-        dummy_group = ContactGroup(None, None)
-        dummy_group_pair = (dummy_group, dummy_group)
-        dummy_row = [None, flow_name, row_id, text_content, "", "", False]
-        return ABTestOp(dummy_group_pair, dummy_row, "Debug_str")
-
-    def test_find_nodes(self):        
-        # A valid node in given flow with given text
-        nodes1 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("ABTesting_Pre", -1, 'Good morning!'))
-        self.assertEqual(nodes1, ['aa0028ce-6f67-4313-bdc1-c2dd249a227d'])
-        # non-existing node text
-        nodes2 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("ABTesting_Pre", -1, 'LOL!'))
-        self.assertEqual(nodes2, [])
-        # non-existing flow name
-        nodes3 = self.rpx.find_nodes_by_content(self.make_minimal_test_op("Trololo", -1, 'Good morning!'))
-        self.assertEqual(nodes3, [])
 
 
 class TestRapidProABTestCreatorLinear(unittest.TestCase):

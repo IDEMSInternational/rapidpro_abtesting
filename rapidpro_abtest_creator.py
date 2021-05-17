@@ -42,116 +42,33 @@ class RapidProABTestCreator(object):
             self.data_ = json.load(file)
 
 
-    def find_nodes_by_content(self, test_op):
+    def _find_matching_nodes(self, edit_op):
         '''
         Go through entire data to find nodes matching the specifications.
 
         Nodes of interest are nodes with "send_msg" actions.
 
         Args:
-            test_op:
-                Relevant fields of the test op for matching are:
-                flow_name: Name of the flow the node should be part of.
-                row_id: (Currently ignored)
-                text_content: Text sent by a "send_msg" action.
+            edit_op:
         '''
 
         # TODO: We should also store the action(s) where the text was found
         #   This would allow us to log more helpful warnings.
 
-        flow_name = test_op.flow_id()
-        row_id = test_op.row_id()
-        text_content = test_op.orig_msg()
-
         results = []
         # TODO: Caching for performance?
         node_flow = None
         for flow in self.data_["flows"]:
-            if flow["name"] == flow_name:
+            if edit_op.is_match_for_flow(flow["name"]):
                 node_flow = flow
         if node_flow is None:
-            logging.warning(test_op.debug_string() + 'No flow with name "{}" found.'.format(flow_name))
+            logging.warning(edit_op.debug_string() + 'No flow with name "{}" found.'.format(edit_op.flow_id()))
             return []
         for node in node_flow["nodes"]:
-            # TODO: Check row_id once implemented
-            for action in node["actions"]:
-                if action["type"] == "send_msg" and action["text"] == text_content:
-                    if not node["uuid"] in results:  # only need one instance per node
-                        results.append(node["uuid"])
+            if edit_op.is_match_for_node(node):
+                if not node["uuid"] in results:  # only need one instance per node
+                    results.append(node["uuid"])
         return results
-
-
-    def find_node_by_uuid(self, node_uuid):
-        ''' Find a node with given uuid in the RapidPro data.'''
-
-        # TODO: Caching for performance?
-        for flow in self.data_["flows"]:
-            node = nt.find_node_by_uuid(flow, node_uuid)
-            if node is not None:
-                return flow, node
-        return None, None
-
-
-    def insert_assign_to_group_gadget(self, node_uuid, test_op):
-        '''Insert a gadget that assigns the user to a A/B testing group
-
-        Args:
-            node_uuid: uuid of the node in front of which to assign the gadget
-            test_op (`FlowEditOp`): specifies the relevant A/B testing group.
-        '''
-
-        flow, node = self.find_node_by_uuid(node_uuid)
-        node_is_entrypoint = flow["nodes"][0]["uuid"] == node_uuid
-        incoming_edges = nt.find_incoming_edges(flow, node_uuid)
-        gadget_nodes = nt.get_assign_to_group_gadget(test_op, node_uuid)
-        gadget_entry_uuid = gadget_nodes[0]["uuid"]
-        for incoming_edge in incoming_edges:
-            incoming_edge["destination_uuid"] = gadget_entry_uuid
-        if node_is_entrypoint:
-            # First node must become the new entry point
-            flow["nodes"] = gadget_nodes[:1] + flow["nodes"] + gadget_nodes[1:]
-        else:
-            flow["nodes"] += gadget_nodes
-
-
-    def apply_testops_to_node(self, flow, node, test_ops):
-        '''
-        Apply test_ops to a given node.
-
-        In the process, the flow is modified.
-
-        If the flow is in a consistent state before applying the test_ops,
-        it will be in a consistent state afterwards.
-
-        Args:
-            flow: flow the node belongs to
-            node: node to apply test_ops to
-            test_ops (`FlowEditOp`):
-        '''
-
-        # TODO: There could be multiple ops from the same A/B test
-        #   on the same node. Simplify tree/variations in that case?
-        uuid = node["uuid"]
-        node_is_entrypoint = flow["nodes"][0]["uuid"] == uuid
-        incoming_edges = nt.find_incoming_edges(flow, uuid)
-
-        # Generate test-specific node variations and add them to flow.
-        flow["nodes"].remove(node)
-        variations = nt.generate_node_variations(node, test_ops)
-        flow["nodes"] += [variation.node for variation in variations]
-
-        # Generate group membership tree and add its nodes to flow
-        root_uuid, tree_nodes = nt.generate_group_membership_tree(test_ops, variations)
-        if node_is_entrypoint:
-            # Root of the tree is the last in the list and must become the new entry point
-            flow["nodes"] = tree_nodes[-1:] + flow["nodes"] + tree_nodes[:-1]
-        else:
-            flow["nodes"] += tree_nodes
-
-        # Redirect edges that went into the node to the root of
-        # the group membership tree.
-        for edge in incoming_edges:
-            edge["destination_uuid"] = root_uuid
 
 
     def apply_abtests(self, floweditsheets):
@@ -159,43 +76,63 @@ class RapidProABTestCreator(object):
 
         # List of pairs of node uuids and test_ops, each pair indicating that
         # before the given node the user should have been assigned to one of the
-        # `ContactGroup`s for the A/B test the test_op belongs to
+        # `ContactGroup`s for the A/B test the edit_op belongs to
         assign_to_group_ops = []
         # Dictionary mapping each node (indexed by uuid) to the list of
         # `FlowEditOp`s that should be applied to the node.
-        test_ops_by_node = defaultdict(list)
+        edit_ops_by_node = defaultdict(list)
 
-        # Find nodes affected by A/B tests in some way
+        # Find nodes affected by operations in some way
         for sheet in floweditsheets:
             if isinstance(sheet, ABTest):  # inelegant hack
                 self.data_["groups"].append(sheet.groupA().to_json_group())
                 self.data_["groups"].append(sheet.groupB().to_json_group())
-            for test_op in sheet.edit_ops():
-                uuids = self.find_nodes_by_content(test_op)
+            for edit_op in sheet.edit_ops():
+                uuids = self._find_matching_nodes(edit_op)
                 if len(uuids) == 0:
-                    logging.warning(test_op.debug_string() + "No node found where operation is applicable.")
+                    logging.warning(edit_op.debug_string() + "No node found where operation is applicable.")
                 if len(uuids) >= 2:
-                    logging.warning(test_op.debug_string() + "Multiple nodes found where operation is applicable.")
+                    logging.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
-                    test_ops_by_node[uuid].append(test_op)
-                    if test_op.assign_to_group():
-                        assign_to_group_ops.append((uuid, test_op))
-
-        # For each node for which the contact should be assigned to a group
-        # before visiting it, insert the corresponding gadget before the node.
-        for node_uuid, test_op in assign_to_group_ops:
-            self.insert_assign_to_group_gadget(node_uuid, test_op)
+                    edit_ops_by_node[uuid].append(edit_op)
 
         # For each nodes affected by A/B tests, apply the test operations
         for flow in self.data_["flows"]:
             # Iterate over copy of node list because the real list of nodes
             # is modified in the process.
             for node in copy.copy(flow["nodes"]):
-                if node["uuid"] in test_ops_by_node:
-                    test_op = test_ops_by_node[node["uuid"]]
-                    self.apply_testops_to_node(flow, node, test_op)
+                if node["uuid"] in edit_ops_by_node:
+                    edit_ops = edit_ops_by_node[node["uuid"]]
+                    apply_editops_to_node(flow, node, edit_ops)
 
 
     def export_to_json(self, filename):
         with open(filename, "w") as fout:
             json.dump(self.data_, fout, indent=2)
+
+
+def apply_editops_to_node(flow, node, edit_ops):
+    '''
+    Apply edit_ops to a given node.
+
+    In the process, the flow is modified.
+
+    If the flow is in a consistent state before applying the edit_ops,
+    it will be in a consistent state afterwards.
+
+    Args:
+        flow: flow the node belongs to
+        node: node to apply edit_ops to
+        edit_ops (`FlowEditOp`):
+    '''
+
+    # TODO: There could be multiple ops from the same A/B test
+    #   on the same node. Simplify tree/variations in that case?
+
+    operable_nodes = [node]
+    for edit_op in edit_ops:
+        new_operable_nodes = []
+        for onode in operable_nodes:
+            new_operable_nodes += edit_op.apply_operation(flow, onode)
+        operable_nodes = new_operable_nodes
+    return operable_nodes  # Return value only used for testing

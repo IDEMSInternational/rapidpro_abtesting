@@ -140,6 +140,31 @@ action_value_fields = {
     "transfer_airtime" : (lambda x: "Amount"),
 }
 
+
+def process_actions(node, context):
+    '''May modify the context.'''
+
+    outputs = []
+    for action in node["actions"]:
+        # Log the action, regardless of its type
+        # TODO: Try/catch in case of unrecognized action/missing field?
+        action_type = action["type"]
+        action_value = action_value_fields[action_type](action)
+        outputs.append((action_type, action_value))
+
+        # We only support a very small subset of actions.
+        if action_type == "add_contact_groups":
+            for group in action["groups"]:
+                context.group_names.append(group["name"])
+        elif action_type == "enter_flow":
+            # TODO: recurse, append outputs
+            # We need to have all flows for that.
+            # action["flow"]["name"]
+            # action["flow"]["uuid"]
+            pass
+    return outputs
+
+
 def traverse_flow(flow, context):
     '''
     Traverse a given flow, assuming the user's group memberships
@@ -162,23 +187,8 @@ def traverse_flow(flow, context):
     outputs = []
     current_node = flow["nodes"][0]
     while current_node is not None:
-        for action in current_node["actions"]:
-            # Log the action, regardless of its type
-            # TODO: Try/catch in case of unrecognized action/missing field?
-            action_type = action["type"]
-            action_value = action_value_fields[action_type](action)
-            outputs.append((action_type, action_value))
+        outputs += process_actions(current_node, context)
 
-            # We only support a very small subset of actions.
-            if action_type == "add_contact_groups":
-                for group in action["groups"]:
-                    context.group_names.append(group["name"])
-            elif action_type == "enter_flow":
-                # TODO: recurse, append outputs
-                # We need to have all flows for that.
-                # action["flow"]["name"]
-                # action["flow"]["uuid"]
-                pass
         destination_uuid = find_destination_uuid(current_node, context)
         if destination_uuid is None:  # we've reached the exit
             break
@@ -198,6 +208,7 @@ def find_final_destination(flow, node, context):
     '''
 
     while node is not None:
+        process_actions(node, context)
         destination_uuid = find_destination_uuid(node, context)
         node = nt.find_node_by_uuid(flow, destination_uuid)
     return destination_uuid
