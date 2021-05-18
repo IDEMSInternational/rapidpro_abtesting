@@ -173,19 +173,25 @@ class FlowEditOp(object):
         if total_occurrences >= 2:
             logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
 
-    def _replace_text_in_quick_reply(self, node, replacement_text):
-        '''Modifies the input node by replacing message text.'''
-        total_occurrences = 0
-        for action in node["actions"]:
-            if action["type"] == "send_msg":
-                for i, text in enumerate(action["quick_replies"]):
-                    total_occurrences += text.count(self.bit_of_text())
-                    text_new = text.replace(self.bit_of_text(), replacement_text)
-                    action["quick_replies"][i] = text_new
-        if total_occurrences == 0:
-            logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(self.bit_of_text()))
-        if total_occurrences >= 2:
-            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
+    def _replace_text_in_quick_replies(self, node, replacement_text):
+        '''Modifies the input node by replacing message text.
+
+        Args:
+            replacement_text (str): Semicolon separated list of text pieces.
+        '''
+
+        for bit_of_text, repl_text in zip(self._bit_of_text.split(';'), replacement_text.split(';')):
+            total_occurrences = 0
+            for action in node["actions"]:
+                if action["type"] == "send_msg":
+                    for i, text in enumerate(action["quick_replies"]):
+                        total_occurrences += text.count(bit_of_text)
+                        text_new = text.replace(bit_of_text, repl_text)
+                        action["quick_replies"][i] = text_new
+            if total_occurrences == 0:
+                logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(bit_of_text))
+            if total_occurrences >= 2:
+                logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
 
     def _apply_noop(self, node):
         return FlowSnippet([node], [node], node["uuid"])
@@ -263,7 +269,7 @@ class ReplaceQuickReplyFlowEditOp(FlowEditOp):
         return self._matches_message_text(node)
 
     def _replace_text_in_node(self, node, text):
-        self._replace_text_in_quick_reply(node, text)
+        self._replace_text_in_quick_replies(node, text)
 
     def _get_flow_snippet(self, input_node):
         return self._get_variation_tree_snippet(input_node)
@@ -272,5 +278,5 @@ class ReplaceQuickReplyFlowEditOp(FlowEditOp):
 OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
     "assign_to_group_before" : AssignToGroupFlowEditOp,
-    "replace_quick_reply" : ReplaceQuickReplyFlowEditOp,
+    "replace_quick_replies" : ReplaceQuickReplyFlowEditOp,
 }

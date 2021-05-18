@@ -154,15 +154,15 @@ class TestOperations(unittest.TestCase):
         msgs3 = traverse_flow(flow, Context())
         self.assertEqual(msgs3, [('send_msg', 'g00d m0rn1ng!')])
 
-    def test_apply_replace_quick_reply(self):
-        row = ['replace_quick_reply', '', 0, 'Good morning!', 'Yes', '', 'Yeah']
+    def test_apply_replace_quick_replies(self):
+        row = ['replace_quick_replies', '', 0, 'Good morning!', 'Yes;No', '', 'Yeah;Nay']
         edit_op = FlowEditOp.create_edit_op(row[0], row, "debug_str")
         self.assertEqual(type(edit_op), ReplaceQuickReplyFlowEditOp)
         input_node = copy.deepcopy(test_node)
         flow_snippet = edit_op._get_flow_snippet(input_node)
         self.assertEqual(len(flow_snippet.node_variations()), 1)
         quick_replies = flow_snippet.node_variations()[0]["actions"][0]["quick_replies"]
-        quick_replies_exp = ['Yeah', 'Maybe', 'No']
+        quick_replies_exp = ['Yeah', 'Maybe', 'Nay']
         self.assertEqual(quick_replies, quick_replies_exp)
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
