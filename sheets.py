@@ -68,14 +68,13 @@ def load_content_from_csv(filename):
 
 
 class MasterSheetParser(ABC):
-    _MASTER_HEADER = ["operation_type", "flow_type", "flow_name", "sheet_name", "status"]
+    _MASTER_HEADER = ["flow_type", "flow_name", "sheet_name", "status"]
     _N_COLUMNS = len(_MASTER_HEADER)
 
     _OPERATION_TYPE = 0
-    _FLOW_TYPE = 1
-    _FLOW_NAME = 2
-    _SHEET_NAME = 3
-    _STATUS = 4
+    _FLOW_NAME = 1
+    _SHEET_NAME = 2
+    _STATUS = 3
 
     # Subclasses should initialize the following properties:
     # self._name
@@ -111,6 +110,8 @@ class MasterSheetParser(ABC):
             return None
 
         sheet_name = row[type(self)._SHEET_NAME]
+        if not sheet_name:
+            sheet_name = row[type(self)._FLOW_NAME]
         operation_type = row[type(self)._OPERATION_TYPE]
         status = row[type(self)._STATUS]
 
@@ -123,14 +124,12 @@ class MasterSheetParser(ABC):
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
             return FlowEditSheet(self._name, content)
-        elif operation_type == "flow_create":
-            logging.warning(debug_string + "flow_create currently not supported.")
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 
 
 class GoogleMasterSheetParser(MasterSheetParser):
-    MASTER_SHEET_NAME = "'==content_list=='"
+    MASTER_SHEET_NAME = "'==content=='"
 
     def __init__(self, spreadsheet_id):
         result = load_google_spreadsheet(spreadsheet_id)
