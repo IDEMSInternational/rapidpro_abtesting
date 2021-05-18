@@ -152,7 +152,7 @@ class TestOperations(unittest.TestCase):
         msgs2 = traverse_flow(flow, Context(groupsB))
         self.assertEqual(msgs2, [('send_msg', 'g00d m0rn1ng!')])
         msgs3 = traverse_flow(flow, Context())
-        self.assertEqual(msgs3, [('send_msg', 'g00d m0rn1ng!')])
+        self.assertEqual(msgs3, [('send_msg', 'Good morning!')])
 
     def test_apply_replace_quick_replies(self):
         row = ['replace_quick_replies', '', 0, 'Good morning!', 'Yes;No', '', 'Yeah;Nay']
@@ -285,12 +285,7 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
             ('send_msg', 'g00d m0rn1ng, Steve!'),
             ('send_msg', 'This is a test.'),
         ]
-        exp4 = [
-            ('send_msg', 'The first personalizable message, Steve!'),
-            ('send_msg', 'Some generic message.'),
-            ('send_msg', 'g00d m0rn1ng, Steve!'),
-            ('send_msg', 'This is a test.'),
-        ]
+        exp4 = exp1
 
         # Traverse the flow with different group memberships and check the sent messages.
         flows = rpx.data_["flows"][0]
@@ -303,7 +298,7 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         groupsBB = [self.abtests[0].groupB().name, self.abtests[1].groupB().name]
         msgs3 = traverse_flow(flows, Context(groupsBB))
         self.assertEqual(msgs3, exp3)
-        msgs4 = traverse_flow(flows, Context())  # "Other" branch. Should be same as msgs3
+        msgs4 = traverse_flow(flows, Context())  # "Other" branch. Should be same as msgs1
         self.assertEqual(msgs4, exp4)
 
 

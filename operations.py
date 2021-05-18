@@ -224,8 +224,8 @@ class FlowEditOp(object):
             # Ditch the first variation and use the original instead.
             # No variation for the "Other" category is added.
             node_variations = [input_node] + node_variations[1:]
-            # We reroute the "Other" category to last node variation
-            destination_uuids = [node["uuid"] for node in node_variations] + [node_variations[-1]["uuid"]]
+            # We reroute the "Other" category to first node variation
+            destination_uuids = [node["uuid"] for node in node_variations] + [node_variations[0]["uuid"]]
 
         # TODO: Special case if categories are empty -> unconditional replace
         switch_node = nt.get_switch_node(self, destination_uuids)
