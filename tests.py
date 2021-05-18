@@ -156,7 +156,7 @@ class TestOperations(unittest.TestCase):
 
     def test_apply_replace_quick_replies(self):
         row = ['replace_quick_replies', '', 0, 'Good morning!', 'Yes;No', '', 'Yeah;Nay']
-        edit_op = FlowEditOp.create_edit_op(row[0], row, "debug_str")
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str")
         self.assertEqual(type(edit_op), ReplaceQuickReplyFlowEditOp)
         input_node = copy.deepcopy(test_node)
         flow_snippet = edit_op._get_flow_snippet(input_node)
@@ -176,8 +176,8 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
     def make_minimal_test_op(self, flow_name, row_id, text_content):
         dummy_group = ContactGroup(None, None)
         dummy_group_pair = (dummy_group, dummy_group)
-        dummy_row = [None, flow_name, row_id, text_content, "", "", "", ""]
-        return FlowEditOp.create_edit_op("replace_bit_of_text", dummy_row, "Debug_str")
+        dummy_row = ["replace_bit_of_text", flow_name, row_id, text_content, "", "", "", ""]
+        return FlowEditOp.create_edit_op(*dummy_row, "Debug_str")
 
     def test_find_nodes(self):        
         # A valid node in given flow with given text

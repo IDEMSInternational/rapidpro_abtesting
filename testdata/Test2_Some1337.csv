@@ -1,2 +1,2 @@
-"type","flow_id","row_id","original_message","a_content(original)","b_content","assign_to_group"
-"replace_bit_of_text","ABTesting_Pre",3,"Good morning!","Good morning","g00d m0rn1ng",FALSE
+type_of_edit,flow_id,original_row_id,node_identifier,change,change:1337,assign_to_group
+replace_bit_of_text,ABTesting_Pre,3,Good morning!,Good morning,g00d m0rn1ng,FALSE

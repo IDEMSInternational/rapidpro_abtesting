@@ -1,4 +1,4 @@
-type,flow_id,row_id,original_message,a_content(original),b_content,assign_to_group
+type_of_edit,flow_id,original_row_id,node_identifier,change,change:replaced,assign_to_group
 replace_bit_of_text,Branching,1,Text42,Text42,Text42 replaced,FALSE
 replace_bit_of_text,Branching,3,Text23 Again,Text23 Again,Text23 Again replaced,TRUE
 replace_bit_of_text,Branching,12,Text3,Text3,Text3 replaced,TRUE
