@@ -154,12 +154,45 @@ class FlowEditOp(object):
                 return True
         return False
 
+    def _replace_text_in_message(self, node, replacement_text):
+        '''Modifies the input node by replacing message text.'''
+        total_occurrences = 0
+        for action in node["actions"]:
+            if action["type"] == "send_msg":
+                text = action["text"]
+                total_occurrences += text.count(self.bit_of_text())
+                text_new = text.replace(self.bit_of_text(), replacement_text)
+                action["text"] = text_new
+        # TODO: If we don't just store the node uuid, but also action uuid
+        #   where edit_op is applicable, we could give more helpful
+        #   messages here by referring to the action text that doesn't match
+        if total_occurrences == 0:
+            # This might happen if we're trying to replace text that has
+            # already had a replacement applied to it.
+            logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(self.bit_of_text()))
+        if total_occurrences >= 2:
+            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
+
+    def _replace_text_in_quick_reply(self, node, replacement_text):
+        '''Modifies the input node by replacing message text.'''
+        total_occurrences = 0
+        for action in node["actions"]:
+            if action["type"] == "send_msg":
+                for i, text in enumerate(action["quick_replies"]):
+                    total_occurrences += text.count(self.bit_of_text())
+                    text_new = text.replace(self.bit_of_text(), replacement_text)
+                    action["quick_replies"][i] = text_new
+        if total_occurrences == 0:
+            logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(self.bit_of_text()))
+        if total_occurrences >= 2:
+            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
+
     def _apply_noop(self, node):
         return FlowSnippet([node], [node], node["uuid"])
 
     def _get_assigntogroup_gadget(self, node):
         if len(self.categories()) != 2:
-            logging.warning(self.debug_string + 'assign_to_group only for A/B tests (i.e. 2 groups).')
+            logging.warning(self.debug_string() + 'assign_to_group only for A/B tests (i.e. 2 groups).')
             return self._apply_noop(node)
         groupA_uuid = self.categories()[0].condition_arguments[0]
         groupA_name = self.categories()[0].condition_arguments[1]
@@ -168,37 +201,14 @@ class FlowEditOp(object):
         gadget = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
         return gadget
 
-
-class AssignToGroupFlowEditOp(FlowEditOp):
-
-    # def __init__(self, row, debug_string, has_node_for_other_category=True):
-    #     super().__init__(row, debug_string, has_node_for_other_category)
-
-    def is_match_for_node(self, node):
-        return self._matches_message_text(node)
-
-    def _get_flow_snippet(self, node):
-        gadget = self._get_assigntogroup_gadget(node)
-        all_nodes = gadget + [node]
-        return FlowSnippet(all_nodes, [node], gadget_nodes[0]["uuid"])
-
-
-class ReplaceBitOfTextFlowEditOp(FlowEditOp):
-
-    # def __init__(self, row, debug_string, has_node_for_other_category=True):
-    #     super().__init__(row, debug_string, has_node_for_other_category)
-
-    def is_match_for_node(self, node):
-        return self._matches_message_text(node)
-
-    def _get_flow_snippet(self, input_node):
+    def _get_variation_tree_snippet(self, input_node):
         node_variations = []
         for category in self.categories():
             node = nt.get_unique_node_copy(input_node)
-            nt.replace_text_in_node(node, self.bit_of_text(), category.replacement_text, self.debug_string())  # TODO: Move to parent class
+            self._replace_text_in_node(node, category.replacement_text)
             node_variations.append(node)
         # Original variation serves as default option
-        nt.replace_text_in_node(input_node, self.bit_of_text(), self.default_text(), self.debug_string())  # TODO: Don't refer to op.
+        self._replace_text_in_node(input_node, self.default_text())
 
         if self.has_node_for_other_category():
             # Original input_node becomes the "Other" variation
@@ -224,7 +234,43 @@ class ReplaceBitOfTextFlowEditOp(FlowEditOp):
         return FlowSnippet(all_nodes, node_variations, first_node["uuid"])
 
 
+class AssignToGroupFlowEditOp(FlowEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _get_flow_snippet(self, node):
+        gadget = self._get_assigntogroup_gadget(node)
+        all_nodes = gadget + [node]
+        return FlowSnippet(all_nodes, [node], gadget_nodes[0]["uuid"])
+
+
+class ReplaceBitOfTextFlowEditOp(FlowEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_text_in_node(self, node, text):
+        self._replace_text_in_message(node, text)
+
+    def _get_flow_snippet(self, input_node):
+        return self._get_variation_tree_snippet(input_node)
+
+
+class ReplaceQuickReplyFlowEditOp(FlowEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_text_in_node(self, node, text):
+        self._replace_text_in_quick_reply(node, text)
+
+    def _get_flow_snippet(self, input_node):
+        return self._get_variation_tree_snippet(input_node)
+
+
 OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
     "assign_to_group_before" : AssignToGroupFlowEditOp,
+    "replace_quick_reply" : ReplaceQuickReplyFlowEditOp,
 }

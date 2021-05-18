@@ -9,7 +9,7 @@ from testing_tools import traverse_flow, find_final_destination
 from sheets import abtest_from_csv, floweditsheet_from_csv
 from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
-from operations import FlowEditOp
+from operations import FlowEditOp, ReplaceQuickReplyFlowEditOp
 import logging
 import copy
 
@@ -23,7 +23,7 @@ test_node = {
             "text": "Good morning!",
             "type": "send_msg",
             "all_urns": False,
-            "quick_replies": [],
+            "quick_replies": ["Yes", "Maybe", "No"],
             "uuid": "72d69a5d-ba85-4b94-81a1-e550ee43758d"
         }
     ],
@@ -137,8 +137,8 @@ class TestOperations(unittest.TestCase):
         self.test_node_x = copy.deepcopy(test_node)
         self.test_node_x["exits"][0]["destination_uuid"] = None
 
-    def test_apply_operation(self):
-        edit_op = self.abtests[1].edit_op(0)  # Careful about indexing here.
+    def test_apply_replace_bit_of_text(self):
+        edit_op = self.abtests[1].edit_op(0)
         flow_snippet = edit_op._get_flow_snippet(self.test_node_x)
         self.assertEqual(len(flow_snippet.node_variations()), 2)
         self.assertEqual(flow_snippet.node_variations()[0], self.test_node_x)  # First node should be original
@@ -154,6 +154,16 @@ class TestOperations(unittest.TestCase):
         msgs3 = traverse_flow(flow, Context())
         self.assertEqual(msgs3, [('send_msg', 'g00d m0rn1ng!')])
 
+    def test_apply_replace_quick_reply(self):
+        row = ['replace_quick_reply', '', 0, 'Good morning!', 'Yes', '', 'Yeah']
+        edit_op = FlowEditOp.create_edit_op(row[0], row, "debug_str")
+        self.assertEqual(type(edit_op), ReplaceQuickReplyFlowEditOp)
+        input_node = copy.deepcopy(test_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        quick_replies = flow_snippet.node_variations()[0]["actions"][0]["quick_replies"]
+        quick_replies_exp = ['Yeah', 'Maybe', 'No']
+        self.assertEqual(quick_replies, quick_replies_exp)
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
     def setUp(self):

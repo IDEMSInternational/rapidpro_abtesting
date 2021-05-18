@@ -130,28 +130,6 @@ def find_node_by_uuid(flow, node_uuid):
     return None
 
 
-def replace_text_in_node(node, orig_text, replacement_text, debug_string):
-    '''Modifies the input node by replacing message text.'''
-
-    total_occurrences = 0
-    for action in node["actions"]:
-        if action["type"] == "send_msg":
-            text = action["text"]
-            total_occurrences += text.count(orig_text)
-            text_new = text.replace(orig_text, replacement_text)
-            action["text"] = text_new
-
-    # TODO: If we don't just store the node uuid, but also action uuid
-    #   where edit_op is applicable, we could give more helpful
-    #   messages here by referring to the action text that doesn't match
-    if total_occurrences == 0:
-        # This might happen if we're trying to replace text that has
-        # already had a replacement applied to it.
-        logging.warning(debug_string + 'No occurrences of "{}" found node.'.format(orig_text))
-    if total_occurrences >= 2:
-        logging.warning(debug_string + 'Multiple occurrences of "{}" found in node.'.format(orig_text))
-
-
 def get_unique_node_copy(node):
     '''Given a node with a send_msg actions, creates a new node with
     unique uuids wherever appropriate.
