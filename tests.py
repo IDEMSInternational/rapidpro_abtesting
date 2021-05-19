@@ -2,14 +2,14 @@ import unittest
 import json
 
 import node_tools as nt
-from abtest import ABTest
+from abtest import SwitchCategory
 from rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
 from sheets import abtest_from_csv, floweditsheet_from_csv
 from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
-from operations import FlowEditOp, ReplaceQuickReplyFlowEditOp
+from operations import *
 import logging
 import copy
 
@@ -31,6 +31,44 @@ test_node = {
         {
             "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
             "destination_uuid": "3f6c8241-5d52-4b5b-8ba5-0f8f8cfdc4a0"
+        }
+    ]
+}
+
+test_value_actions_node = {
+    "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
+    "actions": [
+        {
+            "type": "set_contact_name",
+            "uuid": "8eebd020-1af5-431c-b943-aa670fc74da1",
+            "name": "Bob Smith"
+        },
+        {
+            "type": "set_contact_language",
+            "uuid": "8eebd020-1af5-431c-b943-aa670fc74da2",
+            "language": "eng"
+        },
+        {
+            "type": "set_contact_field",
+            "uuid": "8eebd020-1af5-431c-b943-aa670fc74da3",
+            "field": {
+                "key": "variable",
+                "name": "Variable"
+            },
+            "value": "some value"
+        },
+        {
+            "type": "set_run_result",
+            "uuid": "8eebd020-1af5-431c-b943-aa670fc74da9",
+            "name": "Result Number 1",
+            "value": "some result",
+            "category": ""
+        }
+    ],
+    "exits": [
+        {
+            "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
+            "destination_uuid": None
         }
     ]
 }
@@ -164,6 +202,90 @@ class TestOperations(unittest.TestCase):
         quick_replies = flow_snippet.node_variations()[0]["actions"][0]["quick_replies"]
         quick_replies_exp = ['Yeah', 'Maybe', 'Nay']
         self.assertEqual(quick_replies, quick_replies_exp)
+
+    def test_apply_replace_saved_value_1(self):
+        row = ['replace_saved_value', '', 0, '@fields.variable', 'some value', '@fields.flag', 'some value']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'new value'))
+        self.assertEqual(type(edit_op), ReplaceSavedValueFlowEditOp)
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        action_index = edit_op._matching_save_value_action_id(input_node)
+        self.assertEqual(action_index, 2)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 2)
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][action_index]["value"], "new value")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][action_index]["value"], "some value")
+
+    def test_apply_replace_saved_value_2(self):
+        row = ['replace_saved_value', '', 0, '@contact.name', 'Bob Smith', '@fields.flag', 'Bobby']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'Steve'))
+        self.assertEqual(type(edit_op), ReplaceSavedValueFlowEditOp)
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        action_index = edit_op._matching_save_value_action_id(input_node)
+        self.assertEqual(action_index, 0)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 2)
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][action_index]["name"], "Steve")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][action_index]["name"], "Bobby")
+
+    def test_apply_replace_saved_value_3(self):
+        row = ['replace_saved_value', '', 0, '@contact.language', 'eng', '@fields.flag', 'eng']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'spa'))  # Ignored
+        edit_op.add_category(SwitchCategory("Cat2", "has_text", "", 'fin'))
+        self.assertEqual(type(edit_op), ReplaceSavedValueFlowEditOp)
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        action_index = edit_op._matching_save_value_action_id(input_node)
+        self.assertEqual(action_index, 1)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 2)
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][action_index]["language"], "eng")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][action_index]["language"], "fin")
+
+    def test_apply_replace_saved_value_4(self):
+        row = ['replace_saved_value', '', 0, '@results.result_number_1', 'some result', '@fields.flag', '123Default']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'Cat1999'))
+        edit_op.add_category(SwitchCategory("Cat2", "has_text", "", 'Cat2999'))
+        self.assertEqual(type(edit_op), ReplaceSavedValueFlowEditOp)
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        action_index = edit_op._matching_save_value_action_id(input_node)
+        self.assertEqual(action_index, 3)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 3)
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][action_index]["value"], "Cat1999")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][action_index]["value"], "Cat2999")
+        self.assertEqual(flow_snippet.node_variations()[2]["actions"][action_index]["value"], "123Default")
+
+    def test_assign_to_group_before_save_value_node(self):
+        row = ['assign_to_group_before_save_value_node', '', 0, '@fields.variable', 'some value', '', '']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
+        edit_op.add_category(SwitchCategory("CatA", "has_group", ["", "GroupA"], ""))
+        edit_op.add_category(SwitchCategory("CatB", "has_group", ["", "GroupB"], ""))
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        self.assertEqual(flow_snippet.node_variations()[0], test_value_actions_node)
+
+        # Turn snippet into complete flow and simulate it.
+        flow = {"nodes" : flow_snippet.nodes()}
+        exp_common = [('set_contact_name', 'Bob Smith'), 
+                      ('set_contact_language', 'eng'),
+                      ('set_contact_field', 'Variable'),
+                      ('set_run_result', 'Result Number 1')]
+        msgs1 = traverse_flow(flow, Context(["GroupA"]))
+        self.assertEqual(msgs1, exp_common)
+        msgs2 = traverse_flow(flow, Context(random_choices=[0]))
+        self.assertEqual(msgs2, [('add_contact_groups', 'GroupA')] + exp_common)
+        msgs3 = traverse_flow(flow, Context(random_choices=[1]))
+        self.assertEqual(msgs3, [('add_contact_groups', 'GroupB')] + exp_common)
+
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
     def setUp(self):

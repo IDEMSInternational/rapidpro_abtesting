@@ -42,7 +42,7 @@ class FlowEditOp(ABC):
         '''Does this operation read a value from the "change" column?'''
         return True
 
-    def create_edit_op(op_type, flow_id, row_id, orig_msg, bit_of_text,
+    def create_edit_op(op_type, flow_id, row_id, node_identifier, bit_of_text,
                        split_by, default_text, debug_string,
                        has_node_for_other_category=True,
                        assign_to_group=False):
@@ -50,17 +50,17 @@ class FlowEditOp(ABC):
             logging.warning(debug_string + 'invalid operation type.')
             return None
         class_name = OPERATION_TYPES[op_type]
-        return class_name(flow_id, row_id, orig_msg, bit_of_text, split_by,
-                          default_text, debug_string,
+        return class_name(flow_id, row_id, node_identifier, bit_of_text,
+                          split_by, default_text, debug_string,
                           has_node_for_other_category, assign_to_group)
 
-    def __init__(self, flow_id, row_id, orig_msg, bit_of_text, split_by,
+    def __init__(self, flow_id, row_id, node_identifier, bit_of_text, split_by,
                  default_text, debug_string,
                  has_node_for_other_category=True,
                  assign_to_group=False):
         self._flow_id = flow_id
         self._row_id = row_id
-        self._orig_msg = orig_msg
+        self._node_identifier = node_identifier
         self._bit_of_text = bit_of_text
         self._split_by = split_by
         self._default_text = default_text
@@ -119,8 +119,8 @@ class FlowEditOp(ABC):
     def row_id(self):
         return self._row_id
 
-    def orig_msg(self):
-        return self._orig_msg
+    def node_identifier(self):
+        return self._node_identifier
 
     def bit_of_text(self):
         return self._bit_of_text
@@ -148,17 +148,46 @@ class FlowEditOp(ABC):
         # TODO: Check row_id once implemented
         # TODO: If there are multiple exits, warn and return False
         for action in node["actions"]:
-            if action["type"] == "send_msg" and action["text"] == self.orig_msg():
+            if action["type"] == "send_msg" and action["text"] == self.node_identifier():
                 return True
         return False
 
     def _matches_save_value(self, node):
+        return self._matching_save_value_action_id(node) != -1
+
+    def _matching_save_value_action_id(self, node):
         # TODO: Check row_id once implemented
-        # TODO: If there are multiple exits, warn and return False
-        for action in node["actions"]:
-            if action["type"] == "send_msg" and action["text"] == self.orig_msg():
-                return True
-        return False
+        for i, action in enumerate(node["actions"]):
+            if action["type"] == "set_run_result" and "@results." + action["name"].lower().replace(' ', '_') == self.node_identifier() and str(self.bit_of_text()) == str(action["value"]):
+                return i
+            if action["type"] == "set_contact_field" and "@fields." + action["field"]["key"].lower() == self.node_identifier() and str(self.bit_of_text()) == str(action["value"]):
+                return i
+            if action["type"] == "set_contact_name" and "@contact.name" == self.node_identifier() and str(self.bit_of_text()) == str(action["name"]):
+                return i
+            if action["type"] == "set_contact_channel" and "@contact.channel" == self.node_identifier() and str(self.bit_of_text()) == str(action["channel"]["name"]):
+                return i
+            if action["type"] == "set_contact_language" and "@contact.language" == self.node_identifier() and str(self.bit_of_text()) == str(action["language"]):
+                return i
+            if action["type"] == "set_contact_status" and "@contact.status" == self.node_identifier() and str(self.bit_of_text()) == str(action["status"]):
+                return i
+        return -1
+
+    def _replace_saved_value(self, node, value, action_index):
+        action = node["actions"][action_index]
+        if action["type"] == "set_run_result":
+            action["value"] = value
+        elif action["type"] == "set_contact_field":
+            action["value"] = value
+        elif action["type"] == "set_contact_name":
+            action["name"] = value
+        elif action["type"] == "set_contact_channel":
+            action["channel"]["name"] = value
+        elif action["type"] == "set_contact_language":
+            action["language"] = value
+        elif action["type"] == "set_contact_status":
+            action["status"] = value
+        else:
+            pass  # TODO: Warning.
 
     def _replace_text_in_message(self, node, replacement_text):
         '''Modifies the input node by replacing message text.'''
@@ -217,10 +246,10 @@ class FlowEditOp(ABC):
         node_variations = []
         for category in self.categories():
             node = nt.get_unique_node_copy(input_node)
-            self._replace_text_in_node(node, category.replacement_text)
+            self._replace_content_in_node(node, category.replacement_text)
             node_variations.append(node)
         # Original variation serves as default option
-        self._replace_text_in_node(input_node, self.default_text())
+        self._replace_content_in_node(input_node, self.default_text())
 
         if self.has_node_for_other_category():
             # Original input_node becomes the "Other" variation
@@ -246,7 +275,34 @@ class FlowEditOp(ABC):
         return FlowSnippet(all_nodes, node_variations, first_node["uuid"])
 
 
-class AssignToGroupBeforeMsgFlowEditOp(FlowEditOp):
+class ReplaceSavedValueFlowEditOp(FlowEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_save_value(node)
+
+    def _replace_content_in_node(self, node, text):
+        action_index = self._matching_save_value_action_id(node)
+        self._replace_saved_value(node, text, action_index)
+
+    def _get_flow_snippet(self, node):
+        return self._get_variation_tree_snippet(node)
+
+
+class AssignToGroupBeforeSaveValueNodeFlowEditOp(FlowEditOp):
+
+    def needs_parameter():
+        return False
+
+    def is_match_for_node(self, node):
+        return self._matches_save_value(node)
+
+    def _get_flow_snippet(self, node):
+        gadget = self._get_assigntogroup_gadget(node)
+        all_nodes = gadget + [node]
+        return FlowSnippet(all_nodes, [node], gadget[0]["uuid"])
+
+
+class AssignToGroupBeforeMsgNodeFlowEditOp(FlowEditOp):
 
     def needs_parameter():
         return False
@@ -265,11 +321,11 @@ class ReplaceBitOfTextFlowEditOp(FlowEditOp):
     def is_match_for_node(self, node):
         return self._matches_message_text(node)
 
-    def _replace_text_in_node(self, node, text):
+    def _replace_content_in_node(self, node, text):
         self._replace_text_in_message(node, text)
 
-    def _get_flow_snippet(self, input_node):
-        return self._get_variation_tree_snippet(input_node)
+    def _get_flow_snippet(self, node):
+        return self._get_variation_tree_snippet(node)
 
 
 class ReplaceQuickReplyFlowEditOp(FlowEditOp):
@@ -277,15 +333,18 @@ class ReplaceQuickReplyFlowEditOp(FlowEditOp):
     def is_match_for_node(self, node):
         return self._matches_message_text(node)
 
-    def _replace_text_in_node(self, node, text):
+    def _replace_content_in_node(self, node, text):
         self._replace_text_in_quick_replies(node, text)
 
-    def _get_flow_snippet(self, input_node):
-        return self._get_variation_tree_snippet(input_node)
+    def _get_flow_snippet(self, node):
+        return self._get_variation_tree_snippet(node)
+
 
 # In the future, each class has an ID string, and the dict is autogenerated?
 OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
-    "assign_to_group_before_msg_node" : AssignToGroupBeforeMsgFlowEditOp,
     "replace_quick_replies" : ReplaceQuickReplyFlowEditOp,
+    "replace_saved_value": ReplaceSavedValueFlowEditOp,
+    "assign_to_group_before_msg_node" : AssignToGroupBeforeMsgNodeFlowEditOp,
+    "assign_to_group_before_save_value_node" : AssignToGroupBeforeSaveValueNodeFlowEditOp,
 }
