@@ -48,26 +48,24 @@ class FlowSheet(ABC):
             if edit_op is not None:
                 self._edit_ops.append(edit_op)
 
-    def _get_common_row_entries(self, row, index):
-        row_new = copy.deepcopy(row)
-        debug_string = '{} {} row {}: '.format(type(self), self._name, index+2)
+    def _get_operation_type(self, row, debug_string):
+        if len(row) == 0:
+            logging.warning(debug_string + 'empty row.')
+            return None
 
-        if len(row) < type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * len(self._category_names):
-            logging.warning(debug_string + 'too few entries.')
-            return None, debug_string
-
-        # TODO: Factor out row_id and type duplicate code?
-        if not row[type(self).TYPE] in OPERATION_TYPES:
+        op_type_str = row[type(self).TYPE]
+        if not op_type_str in OPERATION_TYPES:
             logging.warning(debug_string + 'invalid type.')
-            return None, debug_string
+            return None
 
-        try:  # Convert ROW_ID to int
-            row_new[type(self).ROW_ID] = int(row[type(self).ROW_ID])
+        return OPERATION_TYPES[op_type_str]
+
+    def _convert_row_id_to_int(self, row):
+        try:
+            row[type(self).ROW_ID] = int(row[type(self).ROW_ID])
         except ValueError:
-            row_new[type(self).ROW_ID] = -1
-            # TODO: Log a warning once we use the ROW_ID
-
-        return row_new, debug_string
+            # TODO: Log a warning once we actually use the ROW_ID
+            row[type(self).ROW_ID] = -1
 
     def _generate_group_pair(self):
         pass
@@ -122,11 +120,20 @@ class FlowEditSheet(FlowSheet):
         return category_names
 
     def _row_to_edit_op(self, row, index):
-        row_new, debug_string = self._get_common_row_entries(row, index)
+        debug_string = '{} {} row {}: '.format(type(self), self._name, index+2)
+        op_type = self._get_operation_type(row, debug_string)
+        if op_type is None:
+            return None
+
+        if len(row) < type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * len(self._category_names):
+            logging.warning(debug_string + 'too few entries.')
+            return None
+
+        row_new = copy.copy(row)
+        self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
         edit_op = FlowEditOp.create_edit_op(*row_new[:type(self).CATEGORIES], debug_string)
-        # edit_op = FlowEditOp(row_new, debug_string)
 
         for i, name in enumerate(self._category_names):
             # TODO: validate condition_type
@@ -187,12 +194,27 @@ class ABTest(FlowSheet):
         Returns None if the row is invalid.
         '''
 
-        row_new, debug_string = self._get_common_row_entries(row, index)
+        debug_string = '{} {} row {}: '.format(type(self), self._name, index+2)
+        op_type = self._get_operation_type(row, debug_string)
+        if op_type is None:
+            return None
 
-        if len(row) > type(self).ASSIGN_TO_GROUP and row_new[type(self).ASSIGN_TO_GROUP] in ["TRUE", "true", "True", True]:
+        n_required_cols = 6
+        if not op_type.needs_parameter():
+            n_required_cols = 4
+        if len(row) < n_required_cols:
+            logging.warning(debug_string + 'too few entries.')
+            return None
+
+        if len(row) > type(self).ASSIGN_TO_GROUP and row[type(self).ASSIGN_TO_GROUP] in ["TRUE", "true", "True", True]:
             assign_to_group = True
         else:
             assign_to_group = False
+
+        row_new = copy.copy(row)
+        if len(row_new) < 6:  # pad to full length
+            row_new += [""] * (6 - len(row_new))
+        self._convert_row_id_to_int(row_new)
 
         edit_op = FlowEditOp.create_edit_op(row_new[type(self).TYPE],
                                             row_new[type(self).FLOW_ID],

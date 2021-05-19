@@ -303,8 +303,9 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
 
 
 class TestRapidProABTestCreatorBranching(unittest.TestCase):
-    def setUp(self):
-        self.abtests = [abtest_from_csv("testdata/Branching.csv")]
+
+    def set_up_branching(self, filename):
+        self.abtests = [abtest_from_csv(filename)]
         self.groupA_name = self.abtests[0].groupA().name
         self.groupB_name = self.abtests[0].groupB().name
         filename = "testdata/Branching.json"
@@ -313,6 +314,41 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         self.flows = rpx.data_["flows"][0]
 
     def test_apply_abtests_1(self):
+        self.set_up_branching("testdata/Branching.csv")
+        self.apply_abtests_1()
+
+    def test_apply_abtests_2(self):
+        self.set_up_branching("testdata/Branching.csv")
+        self.apply_abtests_2()
+
+    def test_apply_abtests_3(self):
+        self.set_up_branching("testdata/Branching.csv")
+        self.apply_abtests_3()
+
+    def test_apply_abtests_4(self):
+        self.set_up_branching("testdata/Branching.csv")
+        self.apply_abtests_4()
+
+    # These tests use a separate spreadsheet without an
+    # assign_to_group column and instead manually inserts
+    # assign_to_group operations
+    def test_apply_abtests_1_equivalent(self):
+        self.set_up_branching("testdata/Branching_equivalent.csv")
+        self.apply_abtests_1()
+
+    def test_apply_abtests_2_equivalent(self):
+        self.set_up_branching("testdata/Branching_equivalent.csv")
+        self.apply_abtests_2()
+
+    def test_apply_abtests_3_equivalent(self):
+        self.set_up_branching("testdata/Branching_equivalent.csv")
+        self.apply_abtests_3()
+
+    def test_apply_abtests_4_equivalent(self):
+        self.set_up_branching("testdata/Branching_equivalent.csv")
+        self.apply_abtests_4()
+
+    def apply_abtests_1(self):
         exp1 = [
             ('send_msg', 'Text1'),
             ('send_msg', 'Text21'),
@@ -331,7 +367,7 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         output2 = traverse_flow(self.flows, Context(groups2, ["Good"], [1]))
         self.assertEqual(output2, exp2)
 
-    def test_apply_abtests_2(self):
+    def apply_abtests_2(self):
         exp1 = [
             ('send_msg', 'Text1'),
             ('send_msg', 'Text23'),
@@ -354,7 +390,7 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         output2 = traverse_flow(self.flows, Context(groups2, ["Something", "Yes"], [1]))
         self.assertEqual(output2, exp2)
 
-    def test_apply_abtests_3(self):
+    def apply_abtests_3(self):
         exp1 = [
             ('send_msg', 'Text1'),
             ('send_msg', 'Text22'),
@@ -368,7 +404,7 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         output1 = traverse_flow(self.flows, Context(groups1, ["Bad"], [0]))
         self.assertEqual(output1, exp1)
 
-    def test_apply_abtests_4(self):
+    def apply_abtests_4(self):
         exp1 = [
             ('send_msg', 'Text1'),
             ('add_contact_groups', self.groupB_name),

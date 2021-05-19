@@ -1,0 +1,8 @@
+type_of_edit,flow_id,original_row_id,node_identifier,change,change:replaced
+replace_bit_of_text,Branching,1,Text42,Text42,Text42 replaced
+assign_to_group_before_msg_node,Branching,3,Text23 Again,,
+replace_bit_of_text,Branching,3,Text23 Again,Text23 Again,Text23 Again replaced
+assign_to_group_before_msg_node,Branching,12,Text3,,
+replace_bit_of_text,Branching,12,Text3,Text3,Text3 replaced
+replace_bit_of_text,Branching,3,Text62,Text62,Text62 replaced
+replace_bit_of_text,Branching,2,Text61 Again,Text61 Again,Text61 Again replaced
