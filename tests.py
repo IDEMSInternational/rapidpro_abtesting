@@ -9,6 +9,7 @@ from testing_tools import traverse_flow, find_final_destination
 from sheets import abtest_from_csv, floweditsheet_from_csv
 from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
+from uuid_tools import UUIDLookup
 from operations import *
 import logging
 import copy
@@ -73,6 +74,26 @@ test_value_actions_node = {
     ]
 }
 
+test_enter_flow_node = {
+    "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
+    "actions": [
+        {
+          "uuid": "beb6f42d-2f22-4ca5-be26-bf87575298de",
+          "type": "enter_flow",
+          "flow": {
+            "uuid": "085b194c-8fb0-4362-bff8-1203a2c12162",
+            "name": "Flow Name"
+          }
+        }
+    ],
+    "exits": [
+        {
+            "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
+            "destination_uuid": None
+        }
+    ]
+}
+
 test_node_3actions = {
     "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
     "actions": [
@@ -119,12 +140,16 @@ test_node_3actions = {
     ]
 }
 
+
 class TestNodeTools(unittest.TestCase):
     def setUp(self):
         abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
         abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
         self.abtests = [abtest1, abtest2]
         self.floweditsheet = floweditsheet_from_csv("testdata/FlowEdit1_Gender.csv")
+        abtest1.parse_rows(UUIDLookup())
+        abtest2.parse_rows(UUIDLookup())
+        self.floweditsheet.parse_rows(UUIDLookup())
 
     def test_get_group_switch_node(self):
         test_op = self.abtests[0].edit_op(1)
@@ -170,6 +195,8 @@ class TestOperations(unittest.TestCase):
     def setUp(self):
         abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
         abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        abtest1.parse_rows(UUIDLookup())
+        abtest2.parse_rows(UUIDLookup())
         self.abtests = [abtest1, abtest2]
         # Same as test_node, but with exit pointing to None.
         self.test_node_x = copy.deepcopy(test_node)
@@ -262,6 +289,26 @@ class TestOperations(unittest.TestCase):
         self.assertEqual(flow_snippet.node_variations()[1]["actions"][action_index]["value"], "Cat2999")
         self.assertEqual(flow_snippet.node_variations()[2]["actions"][action_index]["value"], "123Default")
 
+    def test_apply_replace_flow(self):
+        uuid_lookup = UUIDLookup()
+        uuid_lookup.add_flow("Flow Name", "085b194c-8fb0-4362-bff8-1203a2c12162")
+        uuid_lookup.add_flow("Dummy Flow", "some_legit_uuid")
+        row = ['replace_flow', '', 0, 'Flow Name', 'Flow Name', '@fields.flag', 'Flow Name']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True, uuid_lookup=uuid_lookup)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'Dummy Flow'), uuid_lookup)
+        edit_op.add_category(SwitchCategory("Cat2", "has_text", "", 'Missing Flow'), uuid_lookup)
+        self.assertEqual(type(edit_op), ReplaceFlowFlowEditOp)
+
+        input_node = copy.deepcopy(test_enter_flow_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 3)
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][0]["flow"]["name"], "Dummy Flow")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][0]["flow"]["name"], "Missing Flow")
+        self.assertEqual(flow_snippet.node_variations()[2]["actions"][0]["flow"]["name"], "Flow Name")
+        self.assertEqual(flow_snippet.node_variations()[0]["actions"][0]["flow"]["uuid"], "some_legit_uuid")
+        self.assertEqual(flow_snippet.node_variations()[1]["actions"][0]["flow"]["uuid"], None)
+        self.assertEqual(flow_snippet.node_variations()[2]["actions"][0]["flow"]["uuid"], "085b194c-8fb0-4362-bff8-1203a2c12162")
+
     def test_assign_to_group_before_save_value_node(self):
         row = ['assign_to_group_before_save_value_node', '', 0, '@fields.variable', 'some value', '', '']
         edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
@@ -293,6 +340,8 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
         self.rpx = RapidProABTestCreator(filename)
         abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
         abtest2 = abtest_from_csv("testdata/Test2_Some1337.csv")
+        abtest1.parse_rows(UUIDLookup())
+        abtest2.parse_rows(UUIDLookup())
         self.abtests = [abtest1, abtest2]
 
     def make_minimal_test_op(self, flow_name, row_id, text_content):
@@ -410,7 +459,7 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         exp4 = exp1
 
         # Traverse the flow with different group memberships and check the sent messages.
-        flows = rpx.data_["flows"][0]
+        flows = rpx._data["flows"][0]
         groupsAA = [self.abtests[0].groupA().name, self.abtests[1].groupA().name]
         msgs1 = traverse_flow(flows, Context(groupsAA))
         self.assertEqual(msgs1, exp1)
@@ -428,12 +477,12 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
 
     def set_up_branching(self, filename):
         self.abtests = [abtest_from_csv(filename)]
-        self.groupA_name = self.abtests[0].groupA().name
-        self.groupB_name = self.abtests[0].groupB().name
         filename = "testdata/Branching.json"
         rpx = RapidProABTestCreator(filename)
         rpx.apply_abtests(self.abtests)
-        self.flows = rpx.data_["flows"][0]
+        self.groupA_name = self.abtests[0].groupA().name
+        self.groupB_name = self.abtests[0].groupB().name
+        self.flows = rpx._data["flows"][0]
 
     def test_apply_abtests_1(self):
         self.set_up_branching("testdata/Branching.csv")
@@ -588,7 +637,7 @@ class TestRapidProEditsLinear(unittest.TestCase):
         ]
 
         # Traverse the flow with different group memberships and check the sent messages.
-        flows = rpx.data_["flows"][0]
+        flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context())
         self.assertEqual(msgs1, exp1)
         variables2 = {"@fields.gender" : "woman", "@fields.likes_1337" : "yes"}
@@ -606,8 +655,6 @@ class TestMasterSheet(unittest.TestCase):
     def setUp(self):
         parser = CSVMasterSheetParser("testdata/master_sheet.csv")
         self.floweditsheets = parser.get_flow_edit_sheets()
-        self.groupA_name = self.floweditsheets[-1].groupA().name
-        self.groupB_name = self.floweditsheets[-1].groupB().name
 
     def test_apply_abtests_linear_onenodeperaction(self):
         filename = "testdata/Linear_OneNodePerAction.json"
@@ -622,6 +669,8 @@ class TestMasterSheet(unittest.TestCase):
         self.evaluate_result(rpx)
 
     def evaluate_result(self, rpx):
+        self.groupA_name = self.floweditsheets[-1].groupA().name
+        self.groupB_name = self.floweditsheets[-1].groupB().name
         exp1 = [
             ('send_msg', 'The first personalizable message, my person!'),
             ('send_msg', 'Some generic message.'),
@@ -648,7 +697,7 @@ class TestMasterSheet(unittest.TestCase):
         ]
 
         # Traverse the flow with different group memberships and check the sent messages.
-        flows = rpx.data_["flows"][0]
+        flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context([self.groupA_name]))
         self.assertEqual(msgs1, exp1)
         variables2 = {"@fields.gender" : "woman"}

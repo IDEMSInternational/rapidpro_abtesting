@@ -1,4 +1,3 @@
-from uuid_tools import generate_random_uuid
 
 class ContactGroup(object):
     '''Represents a RapidPro contact group
@@ -10,10 +9,7 @@ class ContactGroup(object):
 
     def __init__(self, name, uuid=None):
         self.name = name
-        if uuid is not None:
-            self.uuid = uuid
-        else:
-            self.uuid = generate_random_uuid()
+        self.uuid = uuid
 
     def __eq__(self, other):
         if isinstance(other, ContactGroup):

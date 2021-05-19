@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 import node_tools as nt
 from abtest import ABTest, FlowEditSheet
-from uuid_tools import generate_random_uuid
+from uuid_tools import UUIDLookup
 from contact_group import ContactGroup
 
 class RapidProABTestCreator(object):
@@ -39,7 +39,17 @@ class RapidProABTestCreator(object):
 
         # data_ (dict): data loaded from RapidPro json. Nested dictionary.
         with open(json_filename, 'r') as file:
-            self.data_ = json.load(file)
+            self._data = json.load(file)
+
+        self._uuid_lookup = UUIDLookup()
+        for flow in self._data["flows"]:
+            self._uuid_lookup.add_flow(flow["name"], flow["uuid"])
+        for group in self._data["groups"]:
+            self._uuid_lookup.add_group(group["name"], group["uuid"])
+
+
+    def get_uuid_lookup(self):
+        return self._uuid_lookup
 
 
     def _find_matching_nodes(self, edit_op):
@@ -58,7 +68,7 @@ class RapidProABTestCreator(object):
         results = []
         # TODO: Caching for performance?
         node_flow = None
-        for flow in self.data_["flows"]:
+        for flow in self._data["flows"]:
             if edit_op.is_match_for_flow(flow["name"]):
                 node_flow = flow
         if node_flow is None:
@@ -84,9 +94,7 @@ class RapidProABTestCreator(object):
 
         # Find nodes affected by operations in some way
         for sheet in floweditsheets:
-            if isinstance(sheet, ABTest):  # inelegant hack
-                self.data_["groups"].append(sheet.groupA().to_json_group())
-                self.data_["groups"].append(sheet.groupB().to_json_group())
+            sheet.parse_rows(self._uuid_lookup)
             for edit_op in sheet.edit_ops():
                 uuids = self._find_matching_nodes(edit_op)
                 if len(uuids) == 0:
@@ -97,7 +105,7 @@ class RapidProABTestCreator(object):
                     edit_ops_by_node[uuid].append(edit_op)
 
         # For each nodes affected by A/B tests, apply the test operations
-        for flow in self.data_["flows"]:
+        for flow in self._data["flows"]:
             # Iterate over copy of node list because the real list of nodes
             # is modified in the process.
             for node in copy.copy(flow["nodes"]):
@@ -105,10 +113,15 @@ class RapidProABTestCreator(object):
                     edit_ops = edit_ops_by_node[node["uuid"]]
                     apply_editops_to_node(flow, node, edit_ops)
 
+        # Collect all previously existing and newly created groups
+        self._data["groups"] = []
+        for group in self._uuid_lookup.all_groups():
+            self._data["groups"].append(group.to_json_group())
+
 
     def export_to_json(self, filename):
         with open(filename, "w") as fout:
-            json.dump(self.data_, fout, indent=2)
+            json.dump(self._data, fout, indent=2)
 
 
 def apply_editops_to_node(flow, node, edit_ops):

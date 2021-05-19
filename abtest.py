@@ -10,9 +10,11 @@ class SwitchCategory(object):
     def __init__(self, name, condition_type, condition_arguments, replacement_text):
         self.name = name
         self.condition_type = condition_type
+        # If the condition type is has_group, there are 2 arguments: uuid and name
+        # If not from an A/B test, we have to fill in the uuid upon construction.
         self.condition_arguments = condition_arguments
-         # -- note: has_group has uuid and name in arg list.
-         #    Fill in uuid upon construction.
+        # For enter_flow operations, this should be a dict
+        # with keys "name" and "uuid" indicating the flow
         self.replacement_text = replacement_text
  
 
@@ -31,11 +33,16 @@ class FlowSheet(ABC):
         '''
 
         self._name = name
-        if rows[0][:type(self).N_FIXED_COLS] != type(self).FIXED_COLS:
+        self._rows = rows
+
+    def parse_rows(self, uuid_lookup):
+        self._uuid_lookup = uuid_lookup
+
+        if self._rows[0][:type(self).N_FIXED_COLS] != type(self).FIXED_COLS:
             logging.warning('ABTest {} has invalid header.'.format(name))
             return
 
-        self._category_names = self._get_category_names(rows[0])
+        self._category_names = self._get_category_names(self._rows[0])
         if self._category_names is None:
             logging.warning('Omitting {} {}.'.format(type(self), name))
             return
@@ -43,7 +50,7 @@ class FlowSheet(ABC):
         self._generate_group_pair()
 
         self._edit_ops = []
-        for i,row in enumerate(rows[1:]):
+        for i,row in enumerate(self._rows[1:]):
             edit_op = self._row_to_edit_op(row, i)
             if edit_op is not None:
                 self._edit_ops.append(edit_op)
@@ -70,13 +77,16 @@ class FlowSheet(ABC):
     def _generate_group_pair(self):
         pass
 
-    @abstractmethod
-    def edit_ops(self):
-        pass
+    def get_groups(self):
+        return []
 
-    @abstractmethod
+    def edit_ops(self):
+        if not hasattr(self, '_edit_ops'):
+            raise AttributeError("Uninitialized sheet. Call parse_rows() before accessing data.")
+        return self._edit_ops
+
     def edit_op(self, index):
-        pass
+        return self.edit_ops()[index]
 
     @abstractmethod
     def _get_category_names(self, row):
@@ -133,22 +143,17 @@ class FlowEditSheet(FlowSheet):
         self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
-        edit_op = FlowEditOp.create_edit_op(*row_new[:type(self).CATEGORIES], debug_string)
+        edit_op = FlowEditOp.create_edit_op(*row_new[:type(self).CATEGORIES], debug_string, uuid_lookup=self._uuid_lookup)
 
         for i, name in enumerate(self._category_names):
             # TODO: validate condition_type
             condition_type = row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i + 2]
             condition_arguments = [row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i + 1]]
             replacement_text = row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i]
+            # TODO: process has_group
             category = SwitchCategory(name, condition_type, condition_arguments, replacement_text)
-            edit_op.add_category(category)
+            edit_op.add_category(category, self._uuid_lookup)
         return edit_op
-
-    def edit_ops(self):
-        return self._edit_ops
-
-    def edit_op(self, index):
-        return self._edit_ops[index]
 
 
 class ABTest(FlowSheet):
@@ -174,8 +179,12 @@ class ABTest(FlowSheet):
     ASSIGN_TO_GROUP = 6  # TODO: Change once we support >2 groups.
 
     def _generate_group_pair(self):
-        groupA = ContactGroup("ABTest_" + self._name + "_" + type(self).DEFAULT_CATEGORY_NAME)
-        groupB = ContactGroup("ABTest_" + self._name + "_" + self._category_names[0])
+        groupA_name = "ABTest_" + self._name + "_" + type(self).DEFAULT_CATEGORY_NAME
+        groupB_name = "ABTest_" + self._name + "_" + self._category_names[0]
+        groupA_uuid = self._uuid_lookup.lookup_group(groupA_name)
+        groupB_uuid = self._uuid_lookup.lookup_group(groupB_name)
+        groupA = ContactGroup(groupA_name, groupA_uuid)
+        groupB = ContactGroup(groupB_name, groupB_uuid)
         self._group_pair = (groupA, groupB)
 
 
@@ -223,31 +232,32 @@ class ABTest(FlowSheet):
                                             row_new[type(self).A_CONTENT],
                                             "@contact.groups",
                                             row_new[type(self).A_CONTENT],     
-                                            debug_string, False, assign_to_group)
+                                            debug_string, False, assign_to_group,
+                                            self._uuid_lookup)
 
         a_content = row_new[type(self).A_CONTENT]
         b_content = row_new[type(self).B_CONTENT]
         groupA, groupB = self._group_pair
         categoryA = SwitchCategory(groupA.name, "has_group", [groupA.uuid, groupA.name], a_content)
-        edit_op.add_category(categoryA)
+        edit_op.add_category(categoryA, self._uuid_lookup)
         categoryB = SwitchCategory(groupB.name, "has_group", [groupB.uuid, groupB.name], b_content)
-        edit_op.add_category(categoryB)
+        edit_op.add_category(categoryB, self._uuid_lookup)
 
         return edit_op
 
     def groupA(self):
         '''ContactGroup for the A side of this test.'''
-        return self._group_pair[0]
+        return self.group_pair()[0]
 
     def groupB(self):
         '''ContactGroup for the B side of this test.'''
-        return self._group_pair[1]
+        return self.group_pair()[1]
 
     def group_pair(self):
+        if not hasattr(self, '_group_pair'):
+            raise AttributeError("Uninitialized sheet. Call parse_rows() before accessing data.")
         return self._group_pair
 
-    def edit_ops(self):
-        return self._edit_ops
+    def get_groups(self):
+        return list(self._group_pair)
 
-    def edit_op(self, index):
-        return self._edit_ops[index]
