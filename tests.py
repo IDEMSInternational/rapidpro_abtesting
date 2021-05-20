@@ -31,7 +31,7 @@ test_node = {
     "exits": [
         {
             "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
-            "destination_uuid": "3f6c8241-5d52-4b5b-8ba5-0f8f8cfdc4a0"
+            "destination_uuid": None
         }
     ]
 }
@@ -75,7 +75,7 @@ test_value_actions_node = {
 }
 
 test_enter_flow_node = {
-    "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
+    "uuid": "d489fd26-a58d-4548-89e0-ab7c2daad202",
     "actions": [
         {
           "uuid": "beb6f42d-2f22-4ca5-be26-bf87575298de",
@@ -86,9 +86,48 @@ test_enter_flow_node = {
           }
         }
     ],
+    "router": {
+        "type": "switch",
+        "operand": "@child.run.status",
+        "cases": [
+            {
+                "uuid": "3054699c-e41a-475f-bbdd-88c5dd26df43",
+                "type": "has_only_text",
+                "arguments": [
+                    "completed"
+                ],
+                "category_uuid": "6a63f69e-f0f5-41f8-83ac-fd9d386e2e79"
+            },
+            {
+                "uuid": "889c2c76-7e4a-43ae-9ada-00a92b579dff",
+                "arguments": [
+                    "expired"
+                ],
+                "type": "has_only_text",
+                "category_uuid": "af5bf685-fae4-4464-9080-6cf34976cbcf"
+            }
+        ],
+        "categories": [
+            {
+                "uuid": "6a63f69e-f0f5-41f8-83ac-fd9d386e2e79",
+                "name": "Complete",
+                "exit_uuid": "a4d2b9ac-8e55-4fa3-b730-07259d2ce629"
+            },
+            {
+                "uuid": "af5bf685-fae4-4464-9080-6cf34976cbcf",
+                "name": "Expired",
+                "exit_uuid": "9dd40439-052a-4739-847e-4af30dad7c62"
+            }
+        ],
+        "default_category_uuid": "af5bf685-fae4-4464-9080-6cf34976cbcf"
+    },
     "exits": [
         {
-            "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
+            "uuid": "a4d2b9ac-8e55-4fa3-b730-07259d2ce629",
+            "destination_uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d"
+        },
+        {
+            "uuid": "9dd40439-052a-4739-847e-4af30dad7c62",
             "destination_uuid": None
         }
     ]
@@ -150,6 +189,31 @@ class TestNodeTools(unittest.TestCase):
         abtest1.parse_rows(UUIDLookup())
         abtest2.parse_rows(UUIDLookup())
         self.floweditsheet.parse_rows(UUIDLookup())
+
+    def test_get_unique_node_copy(self):
+        copied = nt.get_unique_node_copy(test_enter_flow_node)
+        # Ensure all relevant uuids have been replaced
+        self.assertNotEqual(copied["uuid"], test_enter_flow_node["uuid"])
+        for a1,a2 in zip(copied["actions"], test_enter_flow_node["actions"]):
+            self.assertNotEqual(a1, a2)
+        for a1,a2 in zip(copied["exits"], test_enter_flow_node["exits"]):
+            self.assertNotEqual(a1, a2)
+        for a1,a2 in zip(copied["router"]["cases"], test_enter_flow_node["router"]["cases"]):
+            self.assertNotEqual(a1, a2)
+        for a1,a2 in zip(copied["router"]["categories"], test_enter_flow_node["router"]["categories"]):
+            self.assertNotEqual(a1, a2)
+
+        # Make sure identical uuids have been replaced consistently
+        flow = {"nodes" : [copied, test_node]}
+        msgs1 = traverse_flow(flow, Context(variables={"@child.run.status" : "completed"}))
+        exp1 = [('enter_flow','Flow Name'),
+                ('send_msg', 'Good morning!')]
+        self.assertEqual(msgs1, exp1)
+
+        msgs2 = traverse_flow(flow, Context())
+        exp2 = [('enter_flow','Flow Name')]
+        self.assertEqual(msgs2, exp2)
+
 
     def test_get_group_switch_node(self):
         test_op = self.abtests[0].edit_op(1)

@@ -131,15 +131,12 @@ def find_node_by_uuid(flow, node_uuid):
 
 
 def get_unique_node_copy(node):
-    '''Given a node with a send_msg actions, creates a new node with
-    unique uuids wherever appropriate.
+    '''Given a node, creates a new node with unique uuids wherever appropriate.
 
-    TODO: Make this function general, i.e. work for any kind of node.'''
+    TODO: Make this work for any kind of node. (Check specification.)'''
 
     node_new = copy.deepcopy(node)
     # Generate new uuids for everything that should have a unique one.
-    # We don't have to worry about routers because nodes with a send_msg
-    # action cannot have a router.
     # TODO: There are 3 action types with fields where this is unclear.
     #   "call_classifier" -- has a "classifier" with uuid
     #   "open_ticket" -- has a "ticketer" with uuid
@@ -154,10 +151,27 @@ def get_unique_node_copy(node):
         if "templating" in action:
             action["templating"]["uuid"] = generate_random_uuid()
         # attachments, quick_replies don't have unique uuids.
+    uuid_map = dict()
     for exit in node_new["exits"]:
-        exit["uuid"] = generate_random_uuid()
+        new_uuid = generate_random_uuid()
+        uuid_map[exit["uuid"]] = new_uuid
+        exit["uuid"] = new_uuid
         # Note: exit["destination_uuid"] is NOT modified because all variations
         # should exit into the same destination as the original.
+    if "router" in node_new:
+        for category in node_new["router"]["categories"]:
+            new_uuid = generate_random_uuid()
+            uuid_map[category["uuid"]] = new_uuid
+            category["uuid"] = new_uuid
+            category["exit_uuid"] = uuid_map[category["exit_uuid"]]
+        if "cases" in node_new["router"]:
+            for case in node_new["router"]["cases"]:
+                new_uuid = generate_random_uuid()
+                uuid_map[case["uuid"]] = new_uuid
+                case["uuid"] = new_uuid
+                case["category_uuid"] = uuid_map[case["category_uuid"]]
+        node_new["router"]["default_category_uuid"] = uuid_map[node_new["router"]["default_category_uuid"]]
+
     return node_new
 
 

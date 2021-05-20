@@ -73,7 +73,11 @@ def find_destination_uuid(current_node, context):
                             category_uuid = case["category_uuid"]
                             break
                     elif case["type"] == "has_phrase":
-                        if argument.lower() in operand.lower():
+                        if case["arguments"][0].lower() in operand.lower():
+                            category_uuid = case["category_uuid"]
+                            break
+                    elif case["type"] == "has_only_text":
+                        if case["arguments"][0].lower() == operand.lower():
                             category_uuid = case["category_uuid"]
                             break
                     elif case["type"] == "has_any_word":
