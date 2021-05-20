@@ -178,6 +178,6 @@ def find_incoming_edges(flow, uuid):
     exits = []
     for node in flow["nodes"]:
         for exit in node["exits"]:
-            if exit["destination_uuid"] == uuid:
+            if exit.get("destination_uuid", None) == uuid:
                 exits.append(exit)
     return exits

@@ -47,7 +47,7 @@ def find_destination_uuid(current_node, context):
     '''
 
     # By default, choose the first exit.
-    destination_uuid = current_node["exits"][0]["destination_uuid"]
+    destination_uuid = current_node["exits"][0].get("destination_uuid", None)
     if "router" in current_node:
         router = current_node["router"]
         if router["type"] == "switch":
@@ -106,7 +106,7 @@ def find_destination_uuid(current_node, context):
         destination_uuid = -1  # -1 because None is a valid value indicating the end of a flow
         for exit in current_node["exits"]:
             if exit["uuid"] == exit_uuid:
-                destination_uuid = exit["destination_uuid"]
+                destination_uuid = exit.get("destination_uuid", None)
                 break
         if destination_uuid == -1:
             raise ValueError("No valid destination_uuid in router of node with uuid " + current_node["uuid"])

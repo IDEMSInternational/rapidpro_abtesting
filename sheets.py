@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from abtest import ABTest, FlowEditSheet
 import csv
+import re
 import logging
 from pathlib import Path
 from abc import ABC, abstractmethod
@@ -120,16 +121,16 @@ class MasterSheetParser(ABC):
             return None
         if operation_type == "flow_testing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return ABTest(self._name, content)
+            return ABTest(sheet_name, content)
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return FlowEditSheet(self._name, content)
+            return FlowEditSheet(sheet_name, content)
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 
 
 class GoogleMasterSheetParser(MasterSheetParser):
-    MASTER_SHEET_NAME = "'==content=='"
+    MASTER_SHEET_NAME = "==content=="
 
     def __init__(self, spreadsheet_id):
         result = load_google_spreadsheet(spreadsheet_id)
@@ -138,6 +139,8 @@ class GoogleMasterSheetParser(MasterSheetParser):
         self._sheets = dict()
         for sheet in result.get('valueRanges', []):
             name = sheet.get('range', '').split('!')[0]
+            if name.startswith("'") and name.endswith("'"):
+                name = name[1:-1]
             content = sheet.get('values', [])
             self._sheets[name] = content
 

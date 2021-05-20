@@ -130,7 +130,7 @@ class FlowEditSheet(FlowSheet):
         return category_names
 
     def _row_to_edit_op(self, row, index):
-        debug_string = '{} {} row {}: '.format(type(self), self._name, index+2)
+        debug_string = '{} {} row {}: '.format(type(self).__name__, self._name, index+2)
         op_type = self._get_operation_type(row, debug_string)
         if op_type is None:
             return None
@@ -203,7 +203,7 @@ class ABTest(FlowSheet):
         Returns None if the row is invalid.
         '''
 
-        debug_string = '{} {} row {}: '.format(type(self), self._name, index+2)
+        debug_string = '{} {} row {}: '.format(type(self).__name__, self._name, index+2)
         op_type = self._get_operation_type(row, debug_string)
         if op_type is None:
             return None

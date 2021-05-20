@@ -401,8 +401,8 @@ class ReplaceFlowFlowEditOp(FlowEditOp):
 OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
     "replace_quick_replies" : ReplaceQuickReplyFlowEditOp,
-    "replace_saved_value": ReplaceSavedValueFlowEditOp,
+    "replace_saved_value" : ReplaceSavedValueFlowEditOp,
     "assign_to_group_before_msg_node" : AssignToGroupBeforeMsgNodeFlowEditOp,
     "assign_to_group_before_save_value_node" : AssignToGroupBeforeSaveValueNodeFlowEditOp,
-    "replace_flow": ReplaceFlowFlowEditOp,  # TODO: rename replace_entered_flow?
+    "replace_flow" : ReplaceFlowFlowEditOp,  # TODO: rename replace_entered_flow?
 }
