@@ -110,7 +110,7 @@ class FlowEditOp(ABC):
         if node_is_entrypoint:
             flow["nodes"] = snippet.nodes() + flow["nodes"]
         else:
-            flow["nodes"] += flow["nodes"] + snippet.nodes()
+            flow["nodes"] = flow["nodes"] + snippet.nodes()
 
         # Redirect edges that went into the node to the snippet root
         for edge in incoming_edges:
