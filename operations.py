@@ -3,7 +3,6 @@ import logging
 import node_tools as nt
 import re
 
-
 class FlowSnippet(object):
     '''A piece of flow with a single entry and exit point.
 
@@ -230,7 +229,6 @@ class FlowEditOp(ABC):
                 text = action["text"]
                 total_occurrences += text.count(self.bit_of_text())
                 text_new = text.replace(self.bit_of_text(), replacement_text)
-                action["text"] = text_new
         # TODO: If we don't just store the node uuid, but also action uuid
         #   where edit_op is applicable, we could give more helpful
         #   messages here by referring to the action text that doesn't match

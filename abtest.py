@@ -36,20 +36,20 @@ class FlowSheet(ABC):
         self._rows = rows
 
     def parse_rows(self, uuid_lookup):
+        self._edit_ops = []
         self._uuid_lookup = uuid_lookup
 
         if self._rows[0][:type(self).N_FIXED_COLS] != type(self).FIXED_COLS:
-            logging.warning('ABTest {} has invalid header.'.format(name))
+            logging.warning('ABTest {} has invalid header.'.format(self._name))
             return
 
         self._category_names = self._get_category_names(self._rows[0])
         if self._category_names is None:
-            logging.warning('Omitting {} {}.'.format(type(self), name))
+            logging.warning('Omitting {} {}.'.format(type(self), self._name))
             return
 
         self._generate_group_pair()
 
-        self._edit_ops = []
         for i,row in enumerate(self._rows[1:]):
             edit_op = self._row_to_edit_op(row, i)
             if edit_op is not None:
@@ -191,7 +191,7 @@ class ABTest(FlowSheet):
     def _get_category_names(self, row):
         # Lazy implementation. Only 2 groups supported right now.
         if not row[type(self).CATEGORIES].startswith(type(self).CATEGORY_PREFIXES[0]):
-            logging.warning('ABTest {} has invalid group B header.'.format(name))
+            logging.warning('ABTest {} has invalid group B header.'.format(self._name))
             return None
         return [row[type(self).CATEGORIES].split(':')[1]]
 
