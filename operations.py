@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import node_tools as nt
+import re
 
 
 class FlowSnippet(object):
@@ -167,11 +168,20 @@ class FlowEditOp(ABC):
             return False
         return True
 
+    def _strict_text_match(self, text1, text2):
+        return text1 == text2
+
+    def _lenient_text_match(self, text1, text2):
+        '''Ignores whitespace differences by replacing groups o
+        whitespace with a single space and stipping whitespace
+        from the beginning and end of the text.'''
+        return re.sub(r'\s+', ' ', text1).strip() == re.sub(r'\s+', ' ', text2).strip()
+
     def _matches_message_text(self, node):
         # TODO: Check row_id once implemented
         # TODO: If there are multiple exits, warn and return False
         for action in node["actions"]:
-            if action["type"] == "send_msg" and action["text"] == self.node_identifier():
+            if action["type"] == "send_msg" and self._lenient_text_match(action["text"], self.node_identifier()):
                 return True
         return False
 
