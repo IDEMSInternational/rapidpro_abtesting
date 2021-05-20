@@ -315,6 +315,9 @@ class FlowEditOp(ABC):
 
 class ReplaceSavedValueFlowEditOp(FlowEditOp):
 
+    def needs_parameter():
+        return False
+
     def is_match_for_node(self, node):
         return self._matches_save_value(node)
 
