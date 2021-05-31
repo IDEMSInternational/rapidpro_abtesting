@@ -6,6 +6,7 @@ import node_tools as nt
 from abtest import ABTest, FlowEditSheet
 from uuid_tools import UUIDLookup
 from contact_group import ContactGroup
+import nodes_layout
 
 class RapidProABTestCreator(object):
     '''Modifies RapidPro flows to support A/B testing.
@@ -112,6 +113,8 @@ class RapidProABTestCreator(object):
                 if node["uuid"] in edit_ops_by_node:
                     edit_ops = edit_ops_by_node[node["uuid"]]
                     apply_editops_to_node(flow, node, edit_ops)
+            # Make sure all flow nodes have positive coordinates
+            nodes_layout.normalize_flow_layout(flow)
 
         # Collect all previously existing and newly created groups
         self._data["groups"] = []

@@ -16,6 +16,8 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
         list of nodes: Nodes of the gadget.
             The first node is entry point to the gadget.
             All exit points are rerouted to the specified destination UUID.
+        node layout dict: mapping node uuid to layout information.
+
     '''
     template = assign_to_group_template \
         .replace("EntryNode_UUID", generate_random_uuid()) \
@@ -41,7 +43,8 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
     for _ in range(n_one_time_uuids):
         # Each time, only replace first instance.
         template = template.replace("OneTimeUse_UUID", generate_random_uuid(), 1)
-    return json.loads(template)
+    data = json.loads(template)
+    return data["nodes"], data["_ui"]["nodes"]
 
 
 def get_switch_node(edit_op, dest_uuids):

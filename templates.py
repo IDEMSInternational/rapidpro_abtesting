@@ -63,7 +63,8 @@ group_switch_node_template = '''
         '''
 
 assign_to_group_template = '''
-      [
+    {
+      "nodes": [
         {
           "uuid": "EntryNode_UUID",
           "actions": [],
@@ -196,5 +197,42 @@ assign_to_group_template = '''
             }
           ]
         }
-      ]
-      '''
+      ],
+      "_ui": {
+        "nodes": {
+          "EntryNode_UUID": {
+            "type": "split_by_groups",
+            "position": {
+              "left": 200,
+              "top": 40
+            },
+            "config": {
+              "cases": {}
+            }
+          },
+          "PickRandomGroupNode_UUID": {
+            "type": "split_by_random",
+            "position": {
+              "left": 260,
+              "top": 140
+            },
+            "config": null
+          },
+          "AssignToGroupANode_UUID": {
+            "position": {
+              "left": 160,
+              "top": 260
+            },
+            "type": "execute_actions"
+          },
+          "AssignToGroupBNode_UUID": {
+            "position": {
+              "left": 380,
+              "top": 260
+            },
+            "type": "execute_actions"
+          }
+        }
+      }
+    }  
+    '''

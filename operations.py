@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 import node_tools as nt
 import re
+from nodes_layout import NodesLayout, make_tree_layout
 
 class FlowSnippet(object):
     '''A piece of flow with a single entry and exit point.
@@ -18,8 +19,9 @@ class FlowSnippet(object):
             as destination is redirected to root_uuid
     '''
 
-    def __init__(self, nodes, node_variations, root_uuid=-1):
+    def __init__(self, nodes, nodes_layout, node_variations, root_uuid=-1):
         self._nodes = nodes
+        self._nodes_layout = nodes_layout
         self._node_variations = node_variations
         if root_uuid == -1:
             self._root_uuid = nodes[0]["uuid"]
@@ -28,6 +30,9 @@ class FlowSnippet(object):
 
     def nodes(self):
         return self._nodes
+
+    def nodes_layout(self):
+        return self._nodes_layout
 
     def node_variations(self):
         return self._node_variations
@@ -103,7 +108,12 @@ class FlowEditOp(ABC):
         incoming_edges = nt.find_incoming_edges(flow, uuid)
 
         flow["nodes"].remove(node)
-        snippet = self._get_flow_snippet(node)
+        nodes_layout = NodesLayout(flow.get("_ui", dict()).get("nodes"))
+        node_layout = nodes_layout.get_node(uuid)
+        snippet = self._get_flow_snippet(node, node_layout)
+        nodes_layout.replace(uuid, snippet.nodes_layout())
+        if "_ui" in flow:
+            flow["_ui"]["nodes"] = nodes_layout.layout()
 
         # Insert the new snippet.
         # If node was entrypoint, snippet has to become entrypoint
@@ -153,7 +163,7 @@ class FlowEditOp(ABC):
         return self._has_node_for_other_category
 
     @abstractmethod
-    def _get_flow_snippet(self, node):
+    def _get_flow_snippet(self, node, node_layout=None):
         pass
 
     def _matches_entered_flow(self, node):
@@ -267,21 +277,32 @@ class FlowEditOp(ABC):
             if total_occurrences >= 2:
                 logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
 
-    def _apply_noop(self, node):
-        return FlowSnippet([node], [node], node["uuid"])
-
     def _get_assigntogroup_gadget(self, node):
         if len(self.categories()) != 2:
             logging.warning(self.debug_string() + 'assign_to_group only for A/B tests (i.e. 2 groups).')
-            return self._apply_noop(node)
+            return None, None
         groupA_uuid = self.categories()[0].condition_arguments[0]
         groupA_name = self.categories()[0].condition_arguments[1]
         groupB_uuid = self.categories()[1].condition_arguments[0]
         groupB_name = self.categories()[1].condition_arguments[1]
-        gadget = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
-        return gadget
+        gadget, gadget_layout = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
+        return gadget, NodesLayout(gadget_layout)
 
-    def _get_variation_tree_snippet(self, input_node):
+    def _get_assigntogroup_snippet(self, node, node_layout):
+        gadget, gadget_layout = self._get_assigntogroup_gadget(node)
+        if gadget is None:
+            return self._get_noop_snippet(node, node_layout)
+        all_nodes = gadget + [node]
+        if node_layout is not None:
+            gadget_layout.insert_after(node["uuid"], node_layout)
+        else:
+            gadget_layout = NodesLayout()
+        return FlowSnippet(all_nodes, gadget_layout, [node], gadget[0]["uuid"])
+
+    def _get_noop_snippet(self, node, node_layout):
+        return FlowSnippet([node], node_layout, [node], node["uuid"])
+
+    def _get_variation_tree_snippet(self, input_node, node_layout):
         node_variations = []
         for category in self.categories():
             node = nt.get_unique_node_copy(input_node)
@@ -306,12 +327,18 @@ class FlowEditOp(ABC):
         first_node = switch_node
         all_nodes = [switch_node] + node_variations
 
-        if self.assign_to_group():
-            gadget = self._get_assigntogroup_gadget(first_node)
-            first_node = gadget[0]
-            all_nodes = gadget + all_nodes
+        tree_layout = make_tree_layout(self.split_by, switch_node["uuid"], node_variations, node_layout)
+        full_layout = tree_layout
 
-        return FlowSnippet(all_nodes, node_variations, first_node["uuid"])
+        if self.assign_to_group():
+            gadget, gadget_layout = self._get_assigntogroup_gadget(first_node)
+            if gadget is not None:
+                first_node = gadget[0]
+                all_nodes = gadget + all_nodes
+                gadget_layout.merge(tree_layout)
+                full_layout = gadget_layout
+
+        return FlowSnippet(all_nodes, full_layout, node_variations, first_node["uuid"])
 
 
 class ReplaceSavedValueFlowEditOp(FlowEditOp):
@@ -326,8 +353,8 @@ class ReplaceSavedValueFlowEditOp(FlowEditOp):
         action_index = self._matching_save_value_action_id(node)
         self._replace_saved_value(node, text, action_index)
 
-    def _get_flow_snippet(self, node):
-        return self._get_variation_tree_snippet(node)
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
 
 
 class AssignToGroupBeforeSaveValueNodeFlowEditOp(FlowEditOp):
@@ -338,10 +365,8 @@ class AssignToGroupBeforeSaveValueNodeFlowEditOp(FlowEditOp):
     def is_match_for_node(self, node):
         return self._matches_save_value(node)
 
-    def _get_flow_snippet(self, node):
-        gadget = self._get_assigntogroup_gadget(node)
-        all_nodes = gadget + [node]
-        return FlowSnippet(all_nodes, [node], gadget[0]["uuid"])
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_assigntogroup_snippet(node, node_layout)
 
 
 class AssignToGroupBeforeMsgNodeFlowEditOp(FlowEditOp):
@@ -352,10 +377,8 @@ class AssignToGroupBeforeMsgNodeFlowEditOp(FlowEditOp):
     def is_match_for_node(self, node):
         return self._matches_message_text(node)
 
-    def _get_flow_snippet(self, node):
-        gadget = self._get_assigntogroup_gadget(node)
-        all_nodes = gadget + [node]
-        return FlowSnippet(all_nodes, [node], gadget[0]["uuid"])
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_assigntogroup_snippet(node, node_layout)
 
 
 class ReplaceBitOfTextFlowEditOp(FlowEditOp):
@@ -366,8 +389,8 @@ class ReplaceBitOfTextFlowEditOp(FlowEditOp):
     def _replace_content_in_node(self, node, text):
         self._replace_text_in_message(node, text)
 
-    def _get_flow_snippet(self, node):
-        return self._get_variation_tree_snippet(node)
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
 
 
 class ReplaceQuickReplyFlowEditOp(FlowEditOp):
@@ -378,8 +401,8 @@ class ReplaceQuickReplyFlowEditOp(FlowEditOp):
     def _replace_content_in_node(self, node, text):
         self._replace_text_in_quick_replies(node, text)
 
-    def _get_flow_snippet(self, node):
-        return self._get_variation_tree_snippet(node)
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
 
 
 class ReplaceFlowFlowEditOp(FlowEditOp):
@@ -405,8 +428,8 @@ class ReplaceFlowFlowEditOp(FlowEditOp):
     def _replace_content_in_node(self, node, text):
         self._replace_entered_flow(node, text)
 
-    def _get_flow_snippet(self, node):
-        return self._get_variation_tree_snippet(node)
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
 
 
 # In the future, each class has an ID string, and the dict is autogenerated?

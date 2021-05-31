@@ -11,6 +11,7 @@ from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
 from uuid_tools import UUIDLookup
 from operations import *
+from nodes_layout import NodesLayout, make_tree_layout
 import logging
 import copy
 
@@ -34,6 +35,14 @@ test_node = {
             "destination_uuid": None
         }
     ]
+}
+
+test_node_layout = {
+    "position": {
+        "left": 1000,
+        "top": 100
+    },
+    "type": "execute_actions"
 }
 
 test_value_actions_node = {
@@ -242,7 +251,7 @@ class TestNodeTools(unittest.TestCase):
         # print(json.dumps(switch, indent=4))
 
     def test_get_assign_to_group_gadget(self):
-        gadget = nt.get_assign_to_group_gadget("GAname", "GAuuid", "GBname", "BGuuid", "destuuid")
+        gadget, gadget_ui = nt.get_assign_to_group_gadget("GAname", "GAuuid", "GBname", "BGuuid", "destuuid")
         flow = {"nodes" : gadget}
         context1 = Context(random_choices=[0])
         find_final_destination(flow, gadget[0], context1)
@@ -773,6 +782,100 @@ class TestMasterSheet(unittest.TestCase):
         variables4 = {"@fields.gender" : "child"}
         msgs4 = traverse_flow(flows, Context([self.groupB_name], variables=variables4))
         self.assertEqual(msgs4, exp4)
+
+
+class TestNodesLayout(unittest.TestCase):
+
+    def test_make_tree_layout(self):
+        nodes = [{"uuid" : "node1_uuid"}, {"uuid" : "node2_uuid"}, {"uuid" : "node3_uuid"}]
+        nodes_layout = make_tree_layout("some_expression", "switch_uuid", nodes, test_node_layout)
+        self.assertEqual(nodes_layout.layout()["node1_uuid"]["position"]["left"], 0)
+        self.assertEqual(nodes_layout.layout()["node1_uuid"]["position"]["top"], NodesLayout.VERTICAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["node2_uuid"]["position"]["left"], NodesLayout.HORIZONTAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["node2_uuid"]["position"]["top"], NodesLayout.VERTICAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["node3_uuid"]["position"]["left"], 2*NodesLayout.HORIZONTAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["node3_uuid"]["position"]["top"], NodesLayout.VERTICAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["switch_uuid"]["position"]["left"], NodesLayout.HORIZONTAL_MARGIN)
+        self.assertEqual(nodes_layout.layout()["switch_uuid"]["position"]["top"], 0)
+
+    def test_get_variation_tree_snippet(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'OK'))
+        edit_op.add_category(SwitchCategory("Cat2", "has_text", "", 'Bad'))
+        snippet = edit_op._get_variation_tree_snippet(test_node, test_node_layout)
+        self.assertEqual(len(snippet.nodes()), len(snippet.nodes_layout().layout()))
+        for node in snippet.nodes():
+            self.assertTrue(node["uuid"] in snippet.nodes_layout().layout())
+
+    def test_get_variation_tree_snippet_group(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
+        edit_op.add_category(SwitchCategory("Cat1", "has_group", ["", "GroupA"], 'Bad'))
+        edit_op.add_category(SwitchCategory("Cat2", "has_group", ["", "GroupB"], 'Bad'))
+        snippet = edit_op._get_variation_tree_snippet(test_node, test_node_layout)
+        self.assertEqual(len(snippet.nodes()), len(snippet.nodes_layout().layout()))
+        for node in snippet.nodes():
+            self.assertTrue(node["uuid"] in snippet.nodes_layout().layout())
+
+    def test_get_assigntogroup_snippet(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
+        edit_op.add_category(SwitchCategory("Cat1", "has_group", ["", "GroupA"], 'Bad'))
+        edit_op.add_category(SwitchCategory("Cat2", "has_group", ["", "GroupB"], 'Bad'))
+        snippet = edit_op._get_assigntogroup_snippet(test_node, test_node_layout)
+        self.assertEqual(len(snippet.nodes()), len(snippet.nodes_layout().layout()))
+        for node in snippet.nodes():
+            self.assertTrue(node["uuid"] in snippet.nodes_layout().layout())
+
+    def test_apply_edit_op(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'OK'))
+        node = copy.deepcopy(test_node)
+        flow =  {
+                    "nodes" : [node],
+                    "_ui" : {
+                        "nodes" : {
+                            node["uuid"] : copy.deepcopy(test_node_layout)
+                        } 
+                    }
+                }
+        edit_op.apply_operation(flow, node)
+        self.assertEqual(len(flow["nodes"]), len(flow["_ui"]["nodes"]))
+        positions = {(layout["position"]["left"], layout["position"]["top"]) for layout in flow["_ui"]["nodes"].values()}
+        self.assertEqual(positions, {
+                (1000, 100-NodesLayout.VERTICAL_MARGIN//2), 
+                (1000-NodesLayout.HORIZONTAL_MARGIN//2, 100+NodesLayout.VERTICAL_MARGIN//2),
+                (1000+NodesLayout.HORIZONTAL_MARGIN//2, 100+NodesLayout.VERTICAL_MARGIN//2)
+            })
+
+    def test_apply_edit_op_group(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False, assign_to_group=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_group", ["", "GroupA"], 'Bad'))
+        edit_op.add_category(SwitchCategory("Cat2", "has_group", ["", "GroupB"], 'Bad'))
+        node = copy.deepcopy(test_node)
+        flow =  {
+                    "nodes" : [node],
+                    "_ui" : {
+                        "nodes" : {
+                            node["uuid"] : copy.deepcopy(test_node_layout)
+                        } 
+                    }
+                }
+        edit_op.apply_operation(flow, node)
+        self.assertEqual(len(flow["_ui"]["nodes"]), len(flow["nodes"]))
+        self.assertEqual(len(flow["_ui"]["nodes"]), 7)
+
+    def test_apply_edit_op_no_ui(self):
+        # Make sure it doesn't crash
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '@fields.flag', 'Good']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'OK'))
+        node = copy.deepcopy(test_node)
+        flow =  { "nodes" : [node] }
+        edit_op.apply_operation(flow, node)
 
 
 if __name__ == '__main__':
