@@ -257,25 +257,33 @@ class FlowEditOp(ABC):
         else:
             logging.warning(self.debug_string() + 'No occurrences of "{}" found in node.'.format(self.bit_of_text()))
 
-    def _replace_text_in_quick_replies(self, node, replacement_text):
-        '''Modifies the input node by replacing message text.
+    def _replace_in_action_list_field(self, node, replacement_text, action_field):
+        '''Modifies the input node by replacing the content of a list-field
+        (whose name is specified in action_field) in an action of a send_msg node.
 
         Args:
-            replacement_text (str): Semicolon separated list of text pieces.
+            replacement_text (str): Semicolon separated list of values to replace
+                the original values with.
         '''
 
         for bit_of_text, repl_text in zip(self._bit_of_text.split(';'), replacement_text.split(';')):
             total_occurrences = 0
             for action in node["actions"]:
                 if action["type"] == "send_msg":
-                    for i, text in enumerate(action["quick_replies"]):
+                    for i, text in enumerate(action[action_field]):
                         total_occurrences += text.count(bit_of_text)
                         text_new = text.replace(bit_of_text, repl_text)
-                        action["quick_replies"][i] = text_new
+                        action[action_field][i] = text_new
             if total_occurrences == 0:
                 logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(bit_of_text))
             if total_occurrences >= 2:
                 logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
+
+    def _replace_text_in_quick_replies(self, node, replacement_text):
+        self._replace_in_action_list_field(node, replacement_text, "quick_replies")
+
+    def _replace_attachments(self, node, replacement_text):
+        self._replace_in_action_list_field(node, replacement_text, "attachments")
 
     def _get_assigntogroup_gadget(self, node):
         if len(self.categories()) != 2:
@@ -409,6 +417,18 @@ class ReplaceQuickReplyFlowEditOp(FlowEditOp):
         return self._get_variation_tree_snippet(node, node_layout)
 
 
+class ReplaceAttachmentsFlowEditOp(FlowEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_content_in_node(self, node, text):
+        self._replace_attachments(node, text)
+
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
+
+
 class ReplaceFlowFlowEditOp(FlowEditOp):
 
     def _process_uuid_lookup(self, uuid_lookup):
@@ -440,6 +460,7 @@ class ReplaceFlowFlowEditOp(FlowEditOp):
 OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
     "replace_quick_replies" : ReplaceQuickReplyFlowEditOp,
+    "replace_attachments" : ReplaceAttachmentsFlowEditOp,
     "replace_saved_value" : ReplaceSavedValueFlowEditOp,
     "assign_to_group_before_msg_node" : AssignToGroupBeforeMsgNodeFlowEditOp,
     "assign_to_group_before_save_value_node" : AssignToGroupBeforeSaveValueNodeFlowEditOp,

@@ -21,7 +21,11 @@ test_node = {
     "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
     "actions": [
         {
-            "attachments": [],
+            "attachments": [
+                "image:@(fields.image_path & \"parent_and_baby.jpg\")",
+                "image:https://i.imgur.com/TQZFqMq.jpeg",
+                "audio:@(fields.voiceover_audio_path & \"Crying.mp3\")",
+            ],
             "text": "Good morning!",
             "type": "send_msg",
             "all_urns": False,
@@ -322,6 +326,23 @@ class TestOperations(unittest.TestCase):
         quick_replies = flow_snippet.node_variations()[0]["actions"][0]["quick_replies"]
         quick_replies_exp = ['Yeah', 'Maybe', 'Nay']
         self.assertEqual(quick_replies, quick_replies_exp)
+
+    def test_apply_replace_attachments(self):
+        orig_str = "image:@(fields.image_path & \"parent_and_baby.jpg\");\"Crying.mp3\""
+        repl_str = "image:@(fields.image_path & \"mother_and_baby.jpg\");\"Happy.mp3\""
+        row = ['replace_attachments', '', 0, 'Good morning!', orig_str, '', repl_str]
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str")
+        self.assertEqual(type(edit_op), ReplaceAttachmentsFlowEditOp)
+        input_node = copy.deepcopy(test_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        attachments = flow_snippet.node_variations()[0]["actions"][0]["attachments"]
+        attachments_exp = [
+            "image:@(fields.image_path & \"mother_and_baby.jpg\")",
+            "image:https://i.imgur.com/TQZFqMq.jpeg",
+            "audio:@(fields.voiceover_audio_path & \"Happy.mp3\")",
+        ]
+        self.assertEqual(attachments, attachments_exp)
 
     def test_apply_replace_saved_value_1(self):
         row = ['replace_saved_value', '', 0, '@fields.variable', 'some value', '@fields.flag', 'some value']
