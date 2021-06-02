@@ -292,6 +292,26 @@ class TestOperations(unittest.TestCase):
         msgs3 = traverse_flow(flow, Context())
         self.assertEqual(msgs3, [('send_msg', 'Good morning!')])
 
+    def test_apply_replace_bit_of_text_0categories(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '', 'OK']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        # edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'OK'))
+        flow_snippet = edit_op._get_flow_snippet(self.test_node_x)
+        self.assertEqual(len(flow_snippet.nodes()), 1)
+        flow = {"nodes" : flow_snippet.nodes()}
+        msgs1 = traverse_flow(flow, Context())
+        self.assertEqual(msgs1, [('send_msg', 'OK morning!')])
+
+    def test_apply_replace_bit_of_text_1category(self):
+        row = ['replace_bit_of_text', '', 0, 'Good Morning!', 'Good', '', 'OK']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False)
+        edit_op.add_category(SwitchCategory("Cat1", "has_text", "", 'Ignored Value'))
+        flow_snippet = edit_op._get_flow_snippet(self.test_node_x)
+        self.assertEqual(len(flow_snippet.nodes()), 1)
+        flow = {"nodes" : flow_snippet.nodes()}
+        msgs1 = traverse_flow(flow, Context())
+        self.assertEqual(msgs1, [('send_msg', 'OK morning!')])
+
     def test_apply_replace_quick_replies(self):
         row = ['replace_quick_replies', '', 0, 'Good morning!', 'Yes;No', '', 'Yeah;Nay']
         edit_op = FlowEditOp.create_edit_op(*row, "debug_str")

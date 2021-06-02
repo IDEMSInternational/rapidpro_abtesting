@@ -322,20 +322,24 @@ class FlowEditOp(ABC):
             # We reroute the "Other" category to first node variation
             destination_uuids = [node["uuid"] for node in node_variations] + [node_variations[0]["uuid"]]
 
-        # TODO: Special case if categories are empty -> unconditional replace
-        switch_node = nt.get_switch_node(self, destination_uuids)
-        first_node = switch_node
-        all_nodes = [switch_node] + node_variations
-
-        tree_layout = make_tree_layout(self.split_by, switch_node["uuid"], node_variations, node_layout)
-        full_layout = tree_layout
+        if len(node_variations) == 1:
+            # If there is only one possible outcome -> unconditional replace
+            first_node = input_node
+            all_nodes = node_variations
+            full_layout = NodesLayout.from_single_node_layout(input_node["uuid"], node_layout)
+        else:
+            # Otherwise insert a switch
+            switch_node = nt.get_switch_node(self, destination_uuids)
+            first_node = switch_node
+            all_nodes = [switch_node] + node_variations
+            full_layout = make_tree_layout(self.split_by, switch_node["uuid"], node_variations, node_layout)
 
         if self.assign_to_group():
             gadget, gadget_layout = self._get_assigntogroup_gadget(first_node)
             if gadget is not None:
                 first_node = gadget[0]
                 all_nodes = gadget + all_nodes
-                gadget_layout.merge(tree_layout)
+                gadget_layout.merge(full_layout)
                 full_layout = gadget_layout
 
         return FlowSnippet(all_nodes, full_layout, node_variations, first_node["uuid"])
