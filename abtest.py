@@ -123,10 +123,6 @@ class FlowEditSheet(FlowSheet):
                 return None
             category_names.append(names[0])
 
-        if len(category_names) == 0:
-            # TODO: This could be a valid use case.
-            logging.warning('FlowEditSheet {} has no category in header row.'.format(self._name))
-            return None
         return category_names
 
     def _row_to_edit_op(self, row, index):
