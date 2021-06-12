@@ -16,7 +16,9 @@ class SwitchCategory(object):
         # For enter_flow operations, this should be a dict
         # with keys "name" and "uuid" indicating the flow
         self.replacement_text = replacement_text
- 
+
+# Condition types which do not need (though some may have) condition arguments 
+NO_ARG_CONDITION_TYPES = ["has_date", "has_district", "has_email", "has_error", "has_number", "has_phone", "has_state", "has_text", "has_time", "has_ward"]
 
 class FlowSheet(ABC):
     # Column indices
@@ -145,6 +147,11 @@ class FlowEditSheet(FlowSheet):
             # TODO: validate condition_type
             condition_type = row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i + 2]
             condition_arguments = [row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i + 1]]
+            if condition_arguments == [""] and condition_type in NO_ARG_CONDITION_TYPES:
+                # For some condition_types "" is a valid and sensible argument, while for
+                # others, in particular those that work without arguments, the intent is
+                # likely to have no argument.
+                condition_arguments = []
             replacement_text = row[type(self).N_FIXED_COLS + type(self).N_CATEGORY_PREFIXES * i]
             # TODO: process has_group
             category = SwitchCategory(name, condition_type, condition_arguments, replacement_text)

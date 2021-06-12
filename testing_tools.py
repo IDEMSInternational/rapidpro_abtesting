@@ -90,6 +90,8 @@ def find_destination_uuid(current_node, context):
                             category_uuid = case["category_uuid"]
                             break
                     elif case["type"] == "has_text":
+                        if case["arguments"] != []:
+                            raise ValueError("has_text case type must not have arugments")
                         if operand.strip() != "":
                             category_uuid = case["category_uuid"]
                             break
