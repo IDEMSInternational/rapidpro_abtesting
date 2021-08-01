@@ -6,8 +6,10 @@ import logging
 logging.basicConfig(filename='main.log', level=logging.WARNING, filemode='w')
 
 SPREADSHEET_ID = '1FLDxTPNvnWPLgt1lUuCLt7Nsx9UtZoBkYihtvsGnntI'  # Sample
+# SPREADSHEET_ID = '1KPakZyyuyHoRO5GCdyde-vOvKq2155pTl-VZKKIKcXI'  # Parenting
 MASTER_CSV = "testdata/master_sheet.csv"
 JSON_FILENAME = "testdata/Linear_OneNodePerAction.json"
+# JSON_FILENAME = "data/plh-international-flavour.json"
 OUTPUT_FILENAME = "out.json"
 
 def main():

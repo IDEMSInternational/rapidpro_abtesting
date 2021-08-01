@@ -1,0 +1,24 @@
+{
+  "version": "13",
+  "site": "https://rapidpro.idems.international",
+  "flows": [
+    {
+      "name": "Minimal Flow",
+      "uuid": "a6efae07-62bb-4b50-9f39-75efb85d6a21",
+      "spec_version": "13.1.0",
+      "language": "base",
+      "type": "messaging",
+      "nodes": [],
+      "revision": 6,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 1
+      },
+      "localization": {}
+    }
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [],
+  "groups": []
+}
