@@ -13,10 +13,8 @@ class TestLanguageChooser(unittest.TestCase):
 
     def setUp(self):
         self.intro_messages = [
-            ('send_msg', 'Hai! Terima kasih kerana mendaftar untuk menerima tip keibubapaan ini. Sila beritahu kami bahasa pilihan anda:'), 
-            ('send_msg', '1. Bahasa Melayu\n2. Bahasa Inggeris\n'), 
-            ('send_msg', 'Hi! Thank you for signing up to receive these parenting tips. Please tell us which language you would like:'), 
-            ('send_msg', '1. Malay\n2. English\n')
+            ('send_msg', 'Hai! Terima kasih kerana mendaftar untuk menerima tip keibubapaan ini. Sila beritahu kami bahasa pilihan anda:\n\n1. Bahasa Melayu\n2. Bahasa Inggeris\n'), 
+            ('send_msg', 'Hi! Thank you for signing up to receive these parenting tips. Please tell us which language you would like:\n\n1. Malay\n2. English\n'), 
         ]
         self.error_messages = [
             ('send_msg', "(Sorry, I don't understand what you mean – in Malay)"), 

@@ -76,16 +76,13 @@ def make_nodes(languages, data):
     for lid, lang in enumerate(languages):
         rowid = lid+1
 
-        # Main message node
-        node, next_node_uuid = get_send_msg_node(next_node_uuid, data[rowid][1])
-        nodes.append(node)
-
-        # Node with language names in that language
+        # Node with main message and language names in that language
+        main_message = data[rowid][1]
         language_names_msg = ""
         for lid2, lang2 in enumerate(languages):
             rowid2 = lid2+1
             language_names_msg += f"{rowid2}. {data[rowid2][lid+FIRST_SPELLING_COLID]}\n"
-        node, next_node_uuid = get_send_msg_node(next_node_uuid, language_names_msg)
+        node, next_node_uuid = get_send_msg_node(next_node_uuid, main_message + '\n\n' + language_names_msg)
         nodes.append(node)
 
         # Error message node
