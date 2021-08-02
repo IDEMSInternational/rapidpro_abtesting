@@ -3,7 +3,7 @@ import copy
 import logging
 
 from uuid_tools import generate_random_uuid
-from templates import assign_to_group_template
+from templates import assign_to_random_group_template, assign_to_fixed_group_template
 
 
 def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, destination_uuid):
@@ -19,7 +19,7 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
         node layout dict: mapping node uuid to layout information.
 
     '''
-    template = assign_to_group_template \
+    template = assign_to_random_group_template \
         .replace("EntryNode_UUID", generate_random_uuid()) \
         .replace("CaseA_UUID", generate_random_uuid()) \
         .replace("CaseB_UUID", generate_random_uuid()) \
@@ -39,6 +39,22 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
         .replace("AssignToGroupBNode_UUID", generate_random_uuid()) \
         .replace("GroupA_name", groupA_name) \
         .replace("GroupB_name", groupB_name)
+    n_one_time_uuids = template.count("OneTimeUse_UUID")
+    for _ in range(n_one_time_uuids):
+        # Each time, only replace first instance.
+        template = template.replace("OneTimeUse_UUID", generate_random_uuid(), 1)
+    data = json.loads(template)
+    return data["nodes"], data["_ui"]["nodes"]
+
+
+def get_assign_to_fixed_group_gadget(group_name, group_uuid, destination_uuid):
+    ''' Always assigns the contact to the given group. '''
+
+    template = assign_to_fixed_group_template \
+        .replace("GroupA_UUID", group_uuid) \
+        .replace("Destination_UUID", destination_uuid) \
+        .replace("AssignToGroupANode_UUID", generate_random_uuid()) \
+        .replace("GroupA_name", group_name)
     n_one_time_uuids = template.count("OneTimeUse_UUID")
     for _ in range(n_one_time_uuids):
         # Each time, only replace first instance.

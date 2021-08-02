@@ -27,7 +27,7 @@ class FlowSheet(ABC):
     ROW_ID = 2
     NODE_IDENTIFIER = 3
 
-    def __init__(self, name, rows):
+    def __init__(self, name, rows, config=None):
         '''
         Args:
             name (str): Name of the A/B test.
@@ -36,6 +36,7 @@ class FlowSheet(ABC):
 
         self._name = name
         self._rows = rows
+        self._config = config or {}
 
     def parse_rows(self, uuid_lookup):
         self._edit_ops = []
@@ -141,7 +142,7 @@ class FlowEditSheet(FlowSheet):
         self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
-        edit_op = FlowEditOp.create_edit_op(*row_new[:type(self).CATEGORIES], debug_string, uuid_lookup=self._uuid_lookup)
+        edit_op = FlowEditOp.create_edit_op(*row_new[:type(self).CATEGORIES], debug_string, uuid_lookup=self._uuid_lookup, config=self._config)
 
         for i, name in enumerate(self._category_names):
             # TODO: validate condition_type
@@ -236,7 +237,8 @@ class ABTest(FlowSheet):
                                             "@contact.groups",
                                             row_new[type(self).A_CONTENT],     
                                             debug_string, False, assign_to_group,
-                                            self._uuid_lookup)
+                                            self._uuid_lookup,
+                                            self._config)
 
         a_content = row_new[type(self).A_CONTENT]
         b_content = row_new[type(self).B_CONTENT]

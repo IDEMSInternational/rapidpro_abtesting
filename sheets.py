@@ -81,7 +81,7 @@ class MasterSheetParser(ABC):
     # self._name
     # self._master_content
 
-    def get_flow_edit_sheets(self):
+    def get_flow_edit_sheets(self, config={}):
         if self._master_content is None:
             logging.warning("Master sheet " + self._name + "could not be loaded.")
             return []
@@ -91,7 +91,7 @@ class MasterSheetParser(ABC):
         flow_operations = []
         for i, row in enumerate(self._master_content[1:]):
             debug_string = "Master sheet " + self._name + " row " + str(i+2) + ": "
-            result = self._parse_row(row, debug_string)
+            result = self._parse_row(row, debug_string, config)
             if result is not None:
                 flow_operations.append(result)
         return flow_operations
@@ -105,7 +105,7 @@ class MasterSheetParser(ABC):
             return True
         return False
 
-    def _parse_row(self, row, debug_string):
+    def _parse_row(self, row, debug_string, config={}):
         if len(row) < type(self)._N_COLUMNS:
             logging.warning(debug_string + "Too few entries in row.")
             return None
@@ -121,10 +121,10 @@ class MasterSheetParser(ABC):
             return None
         if operation_type == "flow_testing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return ABTest(sheet_name, content)
+            return ABTest(sheet_name, content, config.get(sheet_name, None))
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return FlowEditSheet(sheet_name, content)
+            return FlowEditSheet(sheet_name, content, config.get(sheet_name, None))
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 

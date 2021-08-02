@@ -51,7 +51,7 @@ class FlowEditOp(ABC):
                        split_by, default_text, debug_string,
                        has_node_for_other_category=True,
                        assign_to_group=False,
-                       uuid_lookup=None):
+                       uuid_lookup=None, config=None):
         if op_type not in OPERATION_TYPES:
             logging.warning(debug_string + 'invalid operation type.')
             return None
@@ -59,13 +59,14 @@ class FlowEditOp(ABC):
         return class_name(flow_id, row_id, node_identifier, bit_of_text,
                           split_by, default_text, debug_string,
                           has_node_for_other_category, assign_to_group,
-                          uuid_lookup)
+                          uuid_lookup, config)
 
     def __init__(self, flow_id, row_id, node_identifier, bit_of_text, split_by,
                  default_text, debug_string,
                  has_node_for_other_category=True,
                  assign_to_group=False,
-                 uuid_lookup=None):
+                 uuid_lookup=None,
+                 config=None):
         self._flow_id = flow_id
         self._row_id = row_id
         self._node_identifier = node_identifier
@@ -76,6 +77,7 @@ class FlowEditOp(ABC):
         self._debug_string = debug_string
         self._has_node_for_other_category = has_node_for_other_category
         self._assign_to_group = assign_to_group  # to be removed
+        self._config = config or {}
         self._process_uuid_lookup(uuid_lookup)
 
     def add_category(self, category, uuid_lookup=None):
@@ -293,7 +295,14 @@ class FlowEditOp(ABC):
         groupA_name = self.categories()[0].condition_arguments[1]
         groupB_uuid = self.categories()[1].condition_arguments[0]
         groupB_name = self.categories()[1].condition_arguments[1]
-        gadget, gadget_layout = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
+        group_assignment = self._config.get("group_assignment", "random")
+        if group_assignment == "always A":
+            gadget, gadget_layout = nt.get_assign_to_fixed_group_gadget(groupA_name, groupA_uuid, node["uuid"])
+        elif group_assignment == "always B":
+            gadget, gadget_layout = nt.get_assign_to_fixed_group_gadget(groupB_name, groupB_uuid, node["uuid"])
+        else:  # group_assignment == "random":
+            gadget, gadget_layout = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
+
         return gadget, NodesLayout(gadget_layout)
 
     def _get_assigntogroup_snippet(self, node, node_layout):

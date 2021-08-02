@@ -268,6 +268,20 @@ class TestNodeTools(unittest.TestCase):
         # print(json.dumps(gadget, indent=4))
 
 
+    def test_get_assign_to_fixed_group_gadget(self):
+        gadget, gadget_ui = nt.get_assign_to_fixed_group_gadget("GAname", "GAuuid", "destuuid")
+        flow = {"nodes" : gadget}
+        context1 = Context(random_choices=[0])
+        find_final_destination(flow, gadget[0], context1)
+        self.assertEqual(len(context1.group_names), 1)
+        self.assertEqual(context1.group_names[0], "GAname")
+        context2 = Context(random_choices=[1])
+        find_final_destination(flow, gadget[0], context2)
+        self.assertEqual(len(context2.group_names), 1)
+        self.assertEqual(context2.group_names[0], "GAname")
+        # print(json.dumps(gadget, indent=4))
+
+
 class TestOperations(unittest.TestCase):
     def setUp(self):
         abtest1 = abtest_from_csv("testdata/Test1_Personalization.csv")
@@ -446,6 +460,32 @@ class TestOperations(unittest.TestCase):
         self.assertEqual(msgs2, [('add_contact_groups', 'GroupA')] + exp_common)
         msgs3 = traverse_flow(flow, Context(random_choices=[1]))
         self.assertEqual(msgs3, [('add_contact_groups', 'GroupB')] + exp_common)
+
+    def test_assign_to_fixed_group_before_save_value_node(self):
+        row = ['assign_to_group_before_save_value_node', '', 0, '@fields.variable', 'some value', '', '']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=False, config={"group_assignment" : "always B"})
+        edit_op.add_category(SwitchCategory("CatA", "has_group", ["", "GroupA"], ""))
+        edit_op.add_category(SwitchCategory("CatB", "has_group", ["", "GroupB"], ""))
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        self.assertEqual(flow_snippet.node_variations()[0], test_value_actions_node)
+
+        # Turn snippet into complete flow and simulate it.
+        flow = {"nodes" : flow_snippet.nodes()}
+        exp_common = [('add_contact_groups', 'GroupB'),
+                      ('set_contact_name', 'Bob Smith'), 
+                      ('set_contact_language', 'eng'),
+                      ('set_contact_field', 'Variable'),
+                      ('set_run_result', 'Result Number 1')]
+        msgs1 = traverse_flow(flow, Context(["GroupA"]))
+        self.assertEqual(msgs1, exp_common)
+        msgs2 = traverse_flow(flow, Context(random_choices=[0]))
+        self.assertEqual(msgs2, exp_common)
+        msgs3 = traverse_flow(flow, Context(random_choices=[1]))
+        self.assertEqual(msgs3, exp_common)
+
 
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
@@ -823,6 +863,48 @@ class TestMasterSheet(unittest.TestCase):
         variables4 = {"@fields.gender" : "child"}
         msgs4 = traverse_flow(flows, Context([self.groupB_name], variables=variables4))
         self.assertEqual(msgs4, exp4)
+
+
+class TestMasterSheetWithConfig(unittest.TestCase):
+    def setUp(self):
+        parser = CSVMasterSheetParser("testdata/master_sheet_cfg.csv")
+        self.floweditsheets = parser.get_flow_edit_sheets({"Test2Assign_Some1337" : { "group_assignment" : "always B"}})
+
+    def test_apply_abtests_linear_onenodeperaction(self):
+        filename = "testdata/Linear_OneNodePerAction.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+        self.group1A_name = self.floweditsheets[0].groupA().name
+        self.group1B_name = self.floweditsheets[0].groupB().name
+        self.group2A_name = self.floweditsheets[1].groupA().name
+        self.group2B_name = self.floweditsheets[1].groupB().name
+
+        exp1 = [
+            ('add_contact_groups', 'ABTest_Test1Assign_Personalization_Stevefied'),
+            ('send_msg', 'The first personalizable message, Steve!'),
+            ('send_msg', 'Some generic message.'),
+            ('add_contact_groups', 'ABTest_Test2Assign_Some1337_1337'),
+            ('send_msg', 'g00d m0rn1ng, Steve!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp23 = [
+            ('send_msg', 'The first personalizable message.'),
+            ('send_msg', 'Some generic message.'),
+            ('add_contact_groups', 'ABTest_Test2Assign_Some1337_1337'),
+            ('send_msg', 'g00d m0rn1ng!'),
+            ('send_msg', 'This is a test.'),
+        ]
+
+        # Traverse the flow with different group memberships and check the sent messages.
+        flows = rpx._data["flows"][0]
+        msgs1 = traverse_flow(flows, Context(random_choices=[1, 0]))
+        self.assertEqual(msgs1, exp1)
+        msgs2 = traverse_flow(flows, Context([self.group1A_name, self.group2B_name]))
+        self.assertEqual(msgs2, exp23)
+        msgs3 = traverse_flow(flows, Context([self.group1A_name]))
+        self.assertEqual(msgs3, exp23)
+        # msgs4 = traverse_flow(flows, Context([self.group1A_name, self.group2A_name]))
+        # This one is different, because the user is now in both groups A and B
 
 
 class TestNodesLayout(unittest.TestCase):
