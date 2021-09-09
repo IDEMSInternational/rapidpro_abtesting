@@ -146,6 +146,80 @@ test_enter_flow_node = {
     ]
 }
 
+test_wait_for_response_node = {
+    "uuid": "5dddd554-88f9-4895-b752-4bb8086ba3ec",
+    "actions": [],
+    "router": {
+        "type": "switch",
+        "default_category_uuid": "ee53d915-a6f2-4d3f-b0a3-f3a46d042c64",
+        "cases": [
+            {
+                "arguments": ["good"],
+                "type": "has_any_word",
+                "uuid": "b46a5865-532f-4b1d-98e2-2ef5dba188e3",
+                "category_uuid": "3aab634e-f329-48c1-99a8-83b7e56c9d3c"
+            },
+            {
+                "arguments": [],
+                "type": "has_email",
+                "uuid": "fed77203-c1d5-479c-85d6-95ee9a1ba710",
+                "category_uuid": "67a6c351-3deb-4c01-ac49-cfe9cc1085d5"
+            },
+            {
+                "arguments": ["40", "60"],
+                "type": "has_number_between",
+                "uuid": "97579ab6-6c65-491c-bd20-5a200a8d37c6",
+                "category_uuid": "ff454f86-0786-4d6b-b98e-e8b537a0c24e"
+            }
+        ],
+        "categories": [
+            {
+                "uuid": "3aab634e-f329-48c1-99a8-83b7e56c9d3c",
+                "name": "Good",
+                "exit_uuid": "1da1dd9c-0f52-4ab6-97fa-ef8653385287"
+            },
+            {
+                "uuid": "67a6c351-3deb-4c01-ac49-cfe9cc1085d5",
+                "name": "Email",
+                "exit_uuid": "34c29388-06a9-43a6-8c93-ce5224fcf81e"
+            },
+            {
+                "uuid": "ff454f86-0786-4d6b-b98e-e8b537a0c24e",
+                "name": "Number around 50",
+                "exit_uuid": "06a5a541-2b5a-499b-92e4-a44ea5742be3"
+            },
+            {
+                "uuid": "ee53d915-a6f2-4d3f-b0a3-f3a46d042c64",
+                "name": "Other",
+                "exit_uuid": "f00b9d62-6d33-4ccf-ae2a-ca76c5492777"
+            }
+        ],
+        "operand": "@input.text",
+        "wait": {
+            "type": "msg"
+        },
+        "result_name": "Result 1"
+    },
+    "exits": [
+        {
+            "uuid": "1da1dd9c-0f52-4ab6-97fa-ef8653385287",
+            "destination_uuid": "5775606a-4b7a-4f76-adb8-cece6ba3038d"
+        },
+        {
+            "uuid": "34c29388-06a9-43a6-8c93-ce5224fcf81e",
+            "destination_uuid": "7f294a83-a2a5-4174-88e5-81ca420fe6f3"
+        },
+        {
+            "uuid": "06a5a541-2b5a-499b-92e4-a44ea5742be3",
+            "destination_uuid": "7f294a83-a2a5-4174-88e5-81ca420fe6f3"
+        },
+        {
+            "uuid": "f00b9d62-6d33-4ccf-ae2a-ca76c5492777",
+            "destination_uuid": "064339b6-0499-47f2-aca6-6c3ac117839c"
+        }
+    ]
+}
+
 test_node_3actions = {
     "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
     "actions": [
@@ -358,6 +432,39 @@ class TestOperations(unittest.TestCase):
         ]
         self.assertEqual(attachments, attachments_exp)
 
+    def test_apply_replace_wait_for_response_cases(self):
+        matching_cases = '''[
+            {"category_name": "Good", "type": "has_any_word", "arguments": ["good"]}, 
+            {"category_name": "Email", "type": "has_email", "arguments": []}, 
+            {"category_name": "Number around 50", "arguments": [40, 60], "type": "has_number_between"}
+        ]'''
+        replacement_1 = matching_cases
+        replacement_2 = '''[
+            {"category_name": "Some stuff", "type": "has_phrase", "arguments": ["some stuff"]}, 
+            {"category_name": "Ok", "type": "has_any_word", "arguments": ["OK"]}, 
+            {"category_name": "Meh", "type": "has_any_word", "arguments": ["meh"]}
+        ]'''
+        row = ['replace_wait_for_response_cases', '', 0, matching_cases, replacement_1, '', replacement_2]
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str")
+        self.assertEqual(type(edit_op), ReplaceWaitForResponseCasesFlowEditOp)
+        input_node = copy.deepcopy(test_wait_for_response_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        replacement_2_list = json.loads(replacement_2)
+        router = flow_snippet.node_variations()[0]["router"]
+        self.assertEqual(router["cases"][0]["type"], replacement_2_list[0]["type"])
+        self.assertEqual(router["cases"][1]["type"], replacement_2_list[1]["type"])
+        self.assertEqual(router["cases"][2]["type"], replacement_2_list[2]["type"])
+        self.assertEqual(router["cases"][0]["arguments"], replacement_2_list[0]["arguments"])
+        self.assertEqual(router["cases"][1]["arguments"], replacement_2_list[1]["arguments"])
+        self.assertEqual(router["cases"][2]["arguments"], replacement_2_list[2]["arguments"])
+        matching_cats = list(filter(lambda cat: cat["uuid"] == router["cases"][0]["category_uuid"], router["categories"]))
+        self.assertEqual(matching_cats[0]["name"], replacement_2_list[0]["category_name"])
+        matching_cats = list(filter(lambda cat: cat["uuid"] == router["cases"][1]["category_uuid"], router["categories"]))
+        self.assertEqual(matching_cats[0]["name"], replacement_2_list[1]["category_name"])
+        matching_cats = list(filter(lambda cat: cat["uuid"] == router["cases"][2]["category_uuid"], router["categories"]))
+        self.assertEqual(matching_cats[0]["name"], replacement_2_list[2]["category_name"])
+
     def test_apply_replace_saved_value_1(self):
         row = ['replace_saved_value', '', 0, '@fields.variable', 'some value', '@fields.flag', 'some value']
         edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
@@ -485,7 +592,6 @@ class TestOperations(unittest.TestCase):
         self.assertEqual(msgs2, exp_common)
         msgs3 = traverse_flow(flow, Context(random_choices=[1]))
         self.assertEqual(msgs3, exp_common)
-
 
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
@@ -625,6 +731,39 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         self.assertEqual(msgs3, exp3)
         msgs4 = traverse_flow(flows, Context())  # "Other" branch. Should be same as msgs1
         self.assertEqual(msgs4, exp4)
+
+
+class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
+    # def setUp(self):
+    def test_wait_for_response(self):
+        abtest1 = abtest_from_csv("testdata/Test_WaitForResponse.csv")
+        self.abtests = [abtest1]
+        filename = "testdata/WaitForResponse.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+        make_exp = lambda s: [('send_msg', 'Hello. Choose an option.'), ('send_msg', s)]
+
+        flows = rpx._data["flows"][0]
+        groupsA = [self.abtests[0].groupA().name]
+        groupsB = [self.abtests[0].groupB().name]
+
+        msgs = traverse_flow(flows, Context(groupsA, ["Yes"]))
+        self.assertEqual(msgs, make_exp('Nice, thank you!'))
+        msgs = traverse_flow(flows, Context(groupsA, ["50"]))
+        self.assertEqual(msgs, make_exp('You know it!'))
+        msgs = traverse_flow(flows, Context(groupsA, ["no no no never"]))
+        self.assertEqual(msgs, make_exp('That\'s too bad.'))
+        msgs = traverse_flow(flows, Context(groupsA, ["99", "no never"]))
+        self.assertEqual(msgs, make_exp('I don\'t get it.') + make_exp('That\'s too bad.'))
+
+        msgs = traverse_flow(flows, Context(groupsB, ["a@b.com"]))
+        self.assertEqual(msgs, make_exp('Nice, thank you!'))
+        msgs = traverse_flow(flows, Context(groupsB, ["something"]))
+        self.assertEqual(msgs, make_exp('You know it!'))
+        msgs = traverse_flow(flows, Context(groupsB, ["99"]))
+        self.assertEqual(msgs, make_exp('That\'s too bad.'))
+        msgs = traverse_flow(flows, Context(groupsB, ["42", "99"]))
+        self.assertEqual(msgs, make_exp('I don\'t get it.') + make_exp('That\'s too bad.'))
 
 
 class TestRapidProABTestCreatorBranching(unittest.TestCase):

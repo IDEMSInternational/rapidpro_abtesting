@@ -1,6 +1,7 @@
 import json
 import uuid
 import copy
+import re
 from collections import defaultdict
 import node_tools as nt
 
@@ -76,8 +77,8 @@ def find_destination_uuid(current_node, context):
                         if case["arguments"][0].lower() in operand.lower():
                             category_uuid = case["category_uuid"]
                             break
-                    elif case["type"] == "has_only_text":
-                        if case["arguments"][0].lower() == operand.lower():
+                    elif case["type"] == "has_only_text":  # case sensitive
+                        if case["arguments"][0] == operand:
                             category_uuid = case["category_uuid"]
                             break
                     elif case["type"] == "has_any_word":
@@ -91,8 +92,26 @@ def find_destination_uuid(current_node, context):
                             break
                     elif case["type"] == "has_text":
                         if case["arguments"] != []:
-                            raise ValueError("has_text case type must not have arugments")
+                            raise ValueError("has_text case type must not have arguments")
                         if operand.strip() != "":
+                            category_uuid = case["category_uuid"]
+                            break
+                    elif case["type"] == "has_email":
+                        if case["arguments"] != []:
+                            raise ValueError("has_email case type must not have arguments")
+                        if len(re.findall(r'[\w]+@[\w]+\.[\w]+', operand)) > 0:
+                            # This might differ from the RapidPro implementation.
+                            category_uuid = case["category_uuid"]
+                            break
+                    elif case["type"] == "has_number_between":
+                        # This might differ from the RapidPro implementation.
+                        if len(case["arguments"]) != 2:
+                            raise ValueError("has_number_between must have 2 arguments")
+                        try:
+                            number = float(operand)
+                        except ValueError:
+                            number = None
+                        if number is not None and float(case["arguments"][0]) <= number <= float(case["arguments"][1]):
                             category_uuid = case["category_uuid"]
                             break
 

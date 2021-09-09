@@ -1,0 +1,248 @@
+{
+  "version": "13",
+  "site": "https://rapidpro.idems.international",
+  "flows": [
+    {
+      "name": "Wait for response example",
+      "uuid": "9d958426-3597-4242-923f-2c2e00a8a65e",
+      "spec_version": "13.1.0",
+      "language": "base",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "4f53f401-c20f-4348-b104-26c5d2c84872",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Hello. Choose an option.",
+              "type": "send_msg",
+              "quick_replies": [
+                "Yes",
+                "42",
+                "no no never"
+              ],
+              "uuid": "cee54fd0-a432-4bf6-b42a-2561627eb3b8"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "1b171354-9ebf-4eb1-87c9-2e4dac06f910",
+              "destination_uuid": "d0adb2fb-f5dd-4ca2-a1c0-28c054bab957"
+            }
+          ]
+        },
+        {
+          "uuid": "d0adb2fb-f5dd-4ca2-a1c0-28c054bab957",
+          "actions": [],
+          "router": {
+            "type": "switch",
+            "default_category_uuid": "177bcbae-6286-461a-a4ff-55c5fecd850a",
+            "cases": [
+              {
+                "arguments": [
+                  "yes"
+                ],
+                "type": "has_any_word",
+                "uuid": "7d3a7c7b-218a-44a8-a5fc-a80062dceacd",
+                "category_uuid": "d243928c-6d2c-4349-b6ff-23cfbce05c92"
+              },
+              {
+                "arguments": [
+                  "no never"
+                ],
+                "type": "has_phrase",
+                "uuid": "9643921e-f05c-47f3-8165-8645b5a67e92",
+                "category_uuid": "ead5c97e-f960-406f-a87f-ac603b70c838"
+              },
+              {
+                "arguments": [
+                  "40",
+                  "60"
+                ],
+                "type": "has_number_between",
+                "uuid": "97a19bb7-a6a4-41c9-bf0f-c0e490ab28d1",
+                "category_uuid": "199562fb-77f0-4c06-99d2-38de6efff8e0"
+              }
+            ],
+            "categories": [
+              {
+                "uuid": "d243928c-6d2c-4349-b6ff-23cfbce05c92",
+                "name": "Yes",
+                "exit_uuid": "d6a047a9-0a76-467e-bcfd-c0731ab62cdc"
+              },
+              {
+                "uuid": "199562fb-77f0-4c06-99d2-38de6efff8e0",
+                "name": "40 - 60",
+                "exit_uuid": "2deb4069-0daa-44df-8c54-8162d4376c66"
+              },
+              {
+                "uuid": "ead5c97e-f960-406f-a87f-ac603b70c838",
+                "name": "No",
+                "exit_uuid": "e6b53df9-9dbd-4582-af3c-424ea3c13938"
+              },
+              {
+                "uuid": "177bcbae-6286-461a-a4ff-55c5fecd850a",
+                "name": "Other",
+                "exit_uuid": "d3054c90-231b-4f7a-8288-ec275b87a095"
+              }
+            ],
+            "operand": "@input.text",
+            "wait": {
+              "type": "msg"
+            },
+            "result_name": "Result 1"
+          },
+          "exits": [
+            {
+              "uuid": "d6a047a9-0a76-467e-bcfd-c0731ab62cdc",
+              "destination_uuid": "fe4104a4-560e-46f4-bd30-98aec6c0b6a5"
+            },
+            {
+              "uuid": "2deb4069-0daa-44df-8c54-8162d4376c66",
+              "destination_uuid": "2d102af6-95c2-4864-8a40-b0a2685a58a2"
+            },
+            {
+              "uuid": "e6b53df9-9dbd-4582-af3c-424ea3c13938",
+              "destination_uuid": "07ffb333-69c3-4a8a-81b4-f93d0aa97a39"
+            },
+            {
+              "uuid": "d3054c90-231b-4f7a-8288-ec275b87a095",
+              "destination_uuid": "977e1238-f8fd-49fb-b970-087559e5557d"
+            }
+          ]
+        },
+        {
+          "uuid": "977e1238-f8fd-49fb-b970-087559e5557d",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "I don't get it.",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "ce5e63dc-1c14-41cb-b2a3-7da7172f82bc"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "4c2ce497-dd0f-42a2-a9a6-f7e78db201a9",
+              "destination_uuid": "4f53f401-c20f-4348-b104-26c5d2c84872"
+            }
+          ]
+        },
+        {
+          "uuid": "fe4104a4-560e-46f4-bd30-98aec6c0b6a5",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Nice, thank you!",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "e98e5691-f9a8-4895-891c-03f52811d3a2"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "ce8b02d4-c7ac-4c8b-b0ad-870c97e34c19",
+              "destination_uuid": null
+            }
+          ]
+        },
+        {
+          "uuid": "2d102af6-95c2-4864-8a40-b0a2685a58a2",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "You know it!",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "e280f063-df2c-450e-9966-e3fc73d79a46"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "fe9de9c4-3172-4d59-a8aa-c6f7a896a367",
+              "destination_uuid": null
+            }
+          ]
+        },
+        {
+          "uuid": "07ffb333-69c3-4a8a-81b4-f93d0aa97a39",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "That's too bad.",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "9f9f7ee1-8489-4343-9c93-7b56105f9763"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "6bd9937a-d135-469e-a8ce-25fd8717e6ff",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "4f53f401-c20f-4348-b104-26c5d2c84872": {
+            "position": {
+              "left": 460,
+              "top": 0
+            },
+            "type": "execute_actions"
+          },
+          "d0adb2fb-f5dd-4ca2-a1c0-28c054bab957": {
+            "type": "wait_for_response",
+            "position": {
+              "left": 460,
+              "top": 140
+            },
+            "config": {
+              "cases": {}
+            }
+          },
+          "fe4104a4-560e-46f4-bd30-98aec6c0b6a5": {
+            "position": {
+              "left": 120,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "2d102af6-95c2-4864-8a40-b0a2685a58a2": {
+            "position": {
+              "left": 340,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "07ffb333-69c3-4a8a-81b4-f93d0aa97a39": {
+            "position": {
+              "left": 560,
+              "top": 380
+            },
+            "type": "execute_actions"
+          },
+          "977e1238-f8fd-49fb-b970-087559e5557d": {
+            "position": {
+              "left": 780,
+              "top": 220
+            },
+            "type": "execute_actions"
+          }
+        }
+      },
+      "revision": 17,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 1
+      },
+      "localization": {}
+    }
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [],
+  "groups": []
+}
