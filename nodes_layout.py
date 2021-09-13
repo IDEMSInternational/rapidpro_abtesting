@@ -133,10 +133,10 @@ class NodesLayout(object):
                 node_layout["position"]["left"] -= xcenter - xmin
             else:
                 node_layout["position"]["left"] += xcenter - xmin
-            if node_layout["position"]["left"] < ycenter:
-                node_layout["position"]["left"] -= ycenter - ymin
+            if node_layout["position"]["top"] < ycenter:
+                node_layout["position"]["top"] -= ycenter - ymin
             else:
-                node_layout["position"]["left"] += ycenter - ymin
+                node_layout["position"]["top"] += ycenter - ymin
 
     def from_single_node_layout(node_uuid, node_layout):
         return NodesLayout({node_uuid : node_layout})
