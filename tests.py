@@ -733,6 +733,42 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         self.assertEqual(msgs4, exp4)
 
 
+class TestRapidProABTestCreatorTwoFlowsWithMatchingNode(unittest.TestCase):
+    def setUp(self):
+        abtest1 = abtest_from_csv("testdata/Test_OpAcrossTwoFlows.csv")
+        self.abtests = [abtest1]
+
+    def test_apply_abtests(self):
+        filename = "testdata/TwoFlowsWithMatchingNode.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+
+        exp1B = [
+            ('send_msg', 'The first personalizable message, Steve!'),
+            ('send_msg', 'Good morning!'),
+        ]
+        exp2B = [
+            ('send_msg', 'The first personalizable message, Steve!'),
+            ('send_msg', 'Good morning, Steve!'),
+        ]
+        exp2A = [
+            ('send_msg', 'The first personalizable message.'),
+            ('send_msg', 'Good morning!'),
+        ]
+
+        flows = rpx._data["flows"][0]
+        msgs1B = traverse_flow(flows, Context([self.abtests[0].groupB().name]))
+        self.assertEqual(msgs1B, exp1B)
+
+        flows = rpx._data["flows"][1]
+        msgs2B = traverse_flow(flows, Context([self.abtests[0].groupB().name]))
+        self.assertEqual(msgs2B, exp2B)
+
+        flows = rpx._data["flows"][1]
+        msgs2A = traverse_flow(flows, Context([self.abtests[0].groupA().name]))
+        self.assertEqual(msgs2A, exp2A)
+
+
 class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
     # def setUp(self):
     def test_wait_for_response(self):

@@ -68,17 +68,18 @@ class RapidProABTestCreator(object):
 
         results = []
         # TODO: Caching for performance?
-        node_flow = None
+        node_flows = []
         for flow in self._data["flows"]:
             if edit_op.is_match_for_flow(flow["name"]):
-                node_flow = flow
-        if node_flow is None:
-            logging.warning(edit_op.debug_string() + 'No flow with name "{}" found.'.format(edit_op.flow_id()))
+                node_flows.append(flow)
+        if not node_flows:
+            logging.warning(edit_op.debug_string() + 'No flow that matches "{}" found.'.format(edit_op.flow_id()))
             return []
-        for node in node_flow["nodes"]:
-            if edit_op.is_match_for_node(node):
-                if not node["uuid"] in results:  # only need one instance per node
-                    results.append(node["uuid"])
+        for node_flow in node_flows:
+            for node in node_flow["nodes"]:
+                if edit_op.is_match_for_node(node):
+                    if not node["uuid"] in results:  # only need one instance per node
+                        results.append(node["uuid"])
         return results
 
 
@@ -100,7 +101,7 @@ class RapidProABTestCreator(object):
                 uuids = self._find_matching_nodes(edit_op)
                 if len(uuids) == 0:
                     logging.warning(edit_op.debug_string() + "No node found where operation is applicable.")
-                if len(uuids) >= 2:
+                if len(uuids) >= 2 and edit_op.is_flow_specific():
                     logging.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
                     edit_ops_by_node[uuid].append(edit_op)

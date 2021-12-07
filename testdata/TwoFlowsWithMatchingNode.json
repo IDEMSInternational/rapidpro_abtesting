@@ -1,0 +1,114 @@
+{
+  "version": "13",
+  "site": "https://rapidpro.idems.international",
+  "flows": [
+    {
+      "name": "Flow_1",
+      "uuid": "36efae07-62bb-4b50-9f39-75efb11d6a2f",
+      "spec_version": "13.1.0",
+      "language": "base",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "47157676-1b5e-4a62-9d92-e47a25aa9f9f",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "The first personalizable message.",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "58134193-4d60-4c63-a117-067132f09e20"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "efef0fde-c91e-40dd-bd67-21496c1d294a",
+              "destination_uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d"
+            }
+          ]
+        },
+        {
+          "uuid": "aa0028ce-6f67-4313-bdc1-c2dd249a227d",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Good morning!",
+              "type": "send_msg",
+              "all_urns": false,
+              "quick_replies": [],
+              "uuid": "72d69a5d-ba85-4b94-81a1-e550ee43758d"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "f90de082-5409-4ce7-8e40-d649458215d2",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "revision": 14,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 6
+      },
+      "localization": {}
+    },
+    {
+      "name": "Flow_2",
+      "uuid": "abcdae07-62bb-4b50-9f39-75efb11d6a2f",
+      "spec_version": "13.1.0",
+      "language": "base",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "abcd7676-1b5e-4a62-9d92-e47a25aa9f9f",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "The first personalizable message.",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "abcd4193-4d60-4c63-a117-067132f09e20"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "abcd0fde-c91e-40dd-bd67-21496c1d294a",
+              "destination_uuid": "123428ce-6f67-4313-bdc1-c2dd249a227d"
+            }
+          ]
+        },
+        {
+          "uuid": "123428ce-6f67-4313-bdc1-c2dd249a227d",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "Good morning!",
+              "type": "send_msg",
+              "all_urns": false,
+              "quick_replies": [],
+              "uuid": "12349a5d-ba85-4b94-81a1-e550ee43758d"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "1234e082-5409-4ce7-8e40-d649458215d2",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "revision": 14,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 6
+      },
+      "localization": {}
+    }  
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [],
+  "groups": []
+}

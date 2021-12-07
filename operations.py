@@ -144,8 +144,12 @@ class FlowEditOp(ABC):
         '''Returns a human-readable identifier of sheet/row of the FlowEditOp.'''
         return self._debug_string
 
+    def is_flow_specific(self):
+        return self._flow_id != ""
+
     def is_match_for_flow(self, flow_name):
-        return flow_name == self._flow_id
+        # If no flow is specified, any flow matches
+        return flow_name == self._flow_id if self.is_flow_specific() else True
 
     def flow_id(self):
         return self._flow_id
