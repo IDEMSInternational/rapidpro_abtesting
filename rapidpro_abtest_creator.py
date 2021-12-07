@@ -101,7 +101,7 @@ class RapidProABTestCreator(object):
                 uuids = self._find_matching_nodes(edit_op)
                 if len(uuids) == 0:
                     logging.warning(edit_op.debug_string() + "No node found where operation is applicable.")
-                if len(uuids) >= 2 and edit_op.is_flow_specific():
+                if len(uuids) >= 2 and edit_op.matches_unique_flow() and edit_op.matches_unique_node_identifier():
                     logging.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
                     edit_ops_by_node[uuid].append(edit_op)

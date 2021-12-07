@@ -1,3 +1,0 @@
-type_of_edit,flow_id,original_row_id,node_identifier,change,change:Stevefied,assign_to_group
-replace_bit_of_text,,1,The first personalizable message.,personalizable message.,"personalizable message, Steve!",FALSE
-replace_bit_of_text,Flow_2,3,Good morning!,Good morning!,"Good morning, Steve!",FALSE

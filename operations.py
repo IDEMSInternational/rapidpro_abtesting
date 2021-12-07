@@ -77,9 +77,19 @@ class FlowEditOp(ABC):
                  assign_to_group=False,
                  uuid_lookup=None,
                  config=None):
-        self._flow_id = flow_id
         self._row_id = row_id
-        self._node_identifier = node_identifier
+        if flow_id[:6].lower() == 'regex:':
+            self._flow_id = flow_id[6:]
+            self._flow_match_regex = True
+        else:
+            self._flow_id = flow_id
+            self._flow_match_regex = False
+        if type(node_identifier) == str and node_identifier[:6].lower() == 'regex:':
+            self._node_identifier = node_identifier[6:]
+            self._node_match_regex = True
+        else:
+            self._node_identifier = node_identifier
+            self._node_match_regex = False
         self._bit_of_text = bit_of_text
         self._split_by = split_by
         self._default_text = default_text
@@ -144,13 +154,6 @@ class FlowEditOp(ABC):
         '''Returns a human-readable identifier of sheet/row of the FlowEditOp.'''
         return self._debug_string
 
-    def is_flow_specific(self):
-        return self._flow_id != ""
-
-    def is_match_for_flow(self, flow_name):
-        # If no flow is specified, any flow matches
-        return flow_name == self._flow_id if self.is_flow_specific() else True
-
     def flow_id(self):
         return self._flow_id
 
@@ -182,6 +185,18 @@ class FlowEditOp(ABC):
     def _get_flow_snippet(self, node, node_layout=None):
         pass
 
+    def matches_unique_flow(self):
+        return not self._flow_match_regex
+
+    def is_match_for_flow(self, flow_name):
+        if self._flow_match_regex:
+            return bool(re.fullmatch(self._flow_id, flow_name))
+        else:
+            return flow_name == self._flow_id
+
+    def matches_unique_node_identifier(self):
+        return not self._node_match_regex
+
     def _matches_entered_flow(self, node):
         # TODO: Check row_id once implemented
         if len(node["actions"]) == 0:
@@ -197,7 +212,7 @@ class FlowEditOp(ABC):
         return text1 == text2
 
     def _lenient_text_match(self, text1, text2):
-        '''Ignores whitespace differences by replacing groups o
+        '''Ignores whitespace differences by replacing groups of
         whitespace with a single space and stipping whitespace
         from the beginning and end of the text.'''
         return re.sub(r'\s+', ' ', text1).strip() == re.sub(r'\s+', ' ', text2).strip()
@@ -205,10 +220,14 @@ class FlowEditOp(ABC):
     def _matches_message_text(self, node):
         # TODO: Check row_id once implemented
         # TODO: If there are multiple exits, warn and return False
+        result = False
         for action in node["actions"]:
-            if action["type"] == "send_msg" and self._lenient_text_match(action["text"], self.node_identifier()):
-                return True
-        return False
+            if action["type"] == "send_msg":
+                if self._node_match_regex:
+                    result |= bool(re.fullmatch(self.node_identifier(), action["text"]))
+                else:
+                    result |= self._lenient_text_match(action["text"], self.node_identifier())
+        return result
 
     def _matches_wait_for_response_cases(self, node):
         if "router" not in node:

@@ -735,24 +735,24 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
 
 class TestRapidProABTestCreatorTwoFlowsWithMatchingNode(unittest.TestCase):
     def setUp(self):
-        abtest1 = abtest_from_csv("testdata/Test_OpAcrossTwoFlows.csv")
+        abtest1 = abtest_from_csv("testdata/RegexMatchFlowNode.csv")
         self.abtests = [abtest1]
 
     def test_apply_abtests(self):
-        filename = "testdata/TwoFlowsWithMatchingNode.json"
+        filename = "testdata/RegexMatchFlowNode.json"
         rpx = RapidProABTestCreator(filename)
         rpx.apply_abtests(self.abtests)
 
         exp1B = [
-            ('send_msg', 'The first personalizable message, Steve!'),
-            ('send_msg', 'Good morning!'),
+            ('send_msg', 'A great personalizable message, Steve!'),
+            ('send_msg', 'Great morning!'),
         ]
         exp2B = [
-            ('send_msg', 'The first personalizable message, Steve!'),
-            ('send_msg', 'Good morning, Steve!'),
+            ('send_msg', 'A great personalizable message, Steve!'),
+            ('send_msg', 'Great morning, Steve!'),
         ]
         exp2A = [
-            ('send_msg', 'The first personalizable message.'),
+            ('send_msg', 'A good personalizable message.'),
             ('send_msg', 'Good morning!'),
         ]
 
