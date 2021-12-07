@@ -982,8 +982,13 @@ class TestRapidProEditsLinear(unittest.TestCase):
 
 class TestMasterSheet(unittest.TestCase):
     def setUp(self):
-        parser = CSVMasterSheetParser("testdata/master_sheet.csv")
+        parser = CSVMasterSheetParser(["testdata/master_sheet.csv"])
         self.floweditsheets = parser.get_flow_edit_sheets()
+
+    def test_split_master_sheet(self):
+        parser = CSVMasterSheetParser(["testdata/master_sheet_part1.csv", "testdata/master_sheet_part2.csv"])
+        self.floweditsheets = parser.get_flow_edit_sheets()
+        self.test_apply_abtests_linear_onenodeperaction()
 
     def test_apply_abtests_linear_onenodeperaction(self):
         filename = "testdata/Linear_OneNodePerAction.json"
@@ -1042,7 +1047,7 @@ class TestMasterSheet(unittest.TestCase):
 
 class TestMasterSheetWithConfig(unittest.TestCase):
     def setUp(self):
-        parser = CSVMasterSheetParser("testdata/master_sheet_cfg.csv")
+        parser = CSVMasterSheetParser(["testdata/master_sheet_cfg.csv"])
         self.floweditsheets = parser.get_flow_edit_sheets({"Test2Assign_Some1337" : { "group_assignment" : "always B"}})
 
     def test_apply_abtests_linear_onenodeperaction(self):

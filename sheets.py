@@ -77,9 +77,10 @@ class MasterSheetParser(ABC):
     _SHEET_NAME = 2
     _STATUS = 3
 
-    # Subclasses should initialize the following properties:
-    # self._name
-    # self._master_content
+    def __init__(self):
+        self._sheets = dict()
+        self._name = ""
+        self._master_content = None
 
     def get_flow_edit_sheets(self, config={}):
         if self._master_content is None:
@@ -128,26 +129,41 @@ class MasterSheetParser(ABC):
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 
+    def _add_to_master_content(self, content):
+        if self._master_content is None:
+            self._master_content = content
+        else:
+            if self._master_content[0] != content[0]:
+                logging.warning(f"Warning: In compatible master header rows: {self._master_content[0]} differs from {content[0]}.")
+            self._master_content += content[1:]
+
 
 class GoogleMasterSheetParser(MasterSheetParser):
     MASTER_SHEET_NAME = "==content=="
 
-    def __init__(self, spreadsheet_id):
-        result = load_google_spreadsheet(spreadsheet_id)
-        self._name = spreadsheet_id
+    def __init__(self, spreadsheet_ids):
+        super().__init__()
+        for spreadsheet_id in spreadsheet_ids:
+            self._add_master_sheet(spreadsheet_id)
+        if not self._master_content:
+            logging.warning("No master sheet with title " + type(self).MASTER_SHEET_NAME + " found.")
+        self._name = self._name[:-1]
 
-        self._sheets = dict()
+    def _add_master_sheet(self, spreadsheet_id):
+        self._name += spreadsheet_id + '|'
+        result = load_google_spreadsheet(spreadsheet_id)
+
         for sheet in result.get('valueRanges', []):
             name = sheet.get('range', '').split('!')[0]
             if name.startswith("'") and name.endswith("'"):
                 name = name[1:-1]
             content = sheet.get('values', [])
-            self._sheets[name] = content
-
-        if not type(self).MASTER_SHEET_NAME in self._sheets:
-            logging.warning("No master sheet with title " + type(self).MASTER_SHEET_NAME + " found.")
-        else:
-            self._master_content = self._sheets[type(self).MASTER_SHEET_NAME]
+            if name == type(self).MASTER_SHEET_NAME:
+                self._add_to_master_content(content)
+            elif name in self._sheets:
+                logging.warning("Warning: Duplicate sheet name: " + name)
+            else:
+                self._sheets[name] = content
 
     def _get_content_from_sheet_name(self, name, debug_string):
         if not name in self._sheets:
@@ -158,10 +174,25 @@ class GoogleMasterSheetParser(MasterSheetParser):
 
 class CSVMasterSheetParser(MasterSheetParser):
 
-    def __init__(self, filename):
-        self._path = os.path.dirname(filename)
-        self._name = os.path.splitext(os.path.basename(filename))[0]
-        self._master_content = load_content_from_csv(filename)
+    def __init__(self, filenames):
+        super().__init__()
+        self._path = None
+        for filename in filenames:
+            self._add_master_sheet(filename)
+        self._name = self._name[:-1]
+
+    def _add_master_sheet(self, filename):
+        name = os.path.splitext(os.path.basename(filename))[0]
+        path = os.path.dirname(filename)
+        if not self._path:
+            self._path = path
+        elif path != self._path:
+            logging.error(f"Error: Master sheets {self._name} and {name} must be in the same directory. Skipping {name}.")
+            return
+
+        self._name += name + '|'
+        content = load_content_from_csv(filename)
+        self._add_to_master_content(content)
 
     def _get_content_from_sheet_name(self, name, debug_string):
         filename = os.path.join(self._path, name + ".csv")

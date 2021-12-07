@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description='Apply FlowEdits/ABTests to a RapidPro JSON file.')
     parser.add_argument('input', help='RapidPro JSON file defining the input RapidPro flows.')
     parser.add_argument('output', help='RapidPro JSON file to write the output to.')
-    parser.add_argument('master_sheet', help='Master sheet referencing FlowEdits/ABTests. Either a csv file or a Google Sheet ID.')
+    parser.add_argument('master_sheets', nargs='+', help='Master sheet(s) referencing FlowEdits/ABTests. Either csv file(s) or a Google Sheet ID(s).')
     parser.add_argument('--format', required=True, choices=["csv", "google_sheets"], help='Format of the master sheet.')
     parser.add_argument('--logfile', help='File to log warnings and errors to.')
     parser.add_argument('--config', help='JSON config file.')
@@ -24,9 +24,9 @@ def main():
         config = {}
 
     if args.format == 'csv':
-        sheet_parser = CSVMasterSheetParser(args.master_sheet)
+        sheet_parser = CSVMasterSheetParser(args.master_sheets)
     else:
-        sheet_parser = GoogleMasterSheetParser(args.master_sheet)
+        sheet_parser = GoogleMasterSheetParser(args.master_sheets)
     flow_edit_sheets = sheet_parser.get_flow_edit_sheets(config)
     rpx = RapidProABTestCreator(args.input)
     rpx.apply_abtests(flow_edit_sheets)
