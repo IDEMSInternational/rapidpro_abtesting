@@ -39,7 +39,7 @@ class RapidProABTestCreator(object):
         '''
 
         # data_ (dict): data loaded from RapidPro json. Nested dictionary.
-        with open(json_filename, 'r') as file:
+        with open(json_filename, 'r', encoding='utf-8') as file:
             self._data = json.load(file)
 
         self._uuid_lookup = UUIDLookup()
