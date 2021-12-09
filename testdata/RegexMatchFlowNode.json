@@ -32,7 +32,7 @@
           "actions": [
             {
               "attachments": [],
-              "text": "Good morning!",
+              "text": "Good morning!\nNice to see you.",
               "type": "send_msg",
               "all_urns": false,
               "quick_replies": [],
@@ -84,7 +84,7 @@
           "actions": [
             {
               "attachments": [],
-              "text": "Good morning!",
+              "text": "Good morning!\nNice to see you.",
               "type": "send_msg",
               "all_urns": false,
               "quick_replies": [],

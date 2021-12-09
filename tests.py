@@ -745,15 +745,15 @@ class TestRapidProABTestCreatorTwoFlowsWithMatchingNode(unittest.TestCase):
 
         exp1B = [
             ('send_msg', 'A great personalizable message, Steve!'),
-            ('send_msg', 'Great morning!'),
+            ('send_msg', 'Great morning!\nNice to see you.'),
         ]
         exp2B = [
             ('send_msg', 'A great personalizable message, Steve!'),
-            ('send_msg', 'Great morning, Steve!'),
+            ('send_msg', 'Great morning, Steve!\nNice to see you.'),
         ]
         exp2A = [
             ('send_msg', 'A good personalizable message.'),
-            ('send_msg', 'Good morning!'),
+            ('send_msg', 'Good morning!\nNice to see you.'),
         ]
 
         flows = rpx._data["flows"][0]

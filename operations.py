@@ -224,7 +224,7 @@ class FlowEditOp(ABC):
         for action in node["actions"]:
             if action["type"] == "send_msg":
                 if self._node_match_regex:
-                    result |= bool(re.fullmatch(self.node_identifier(), action["text"]))
+                    result |= bool(re.fullmatch(self.node_identifier(), action["text"], flags=re.DOTALL))
                 else:
                     result |= self._lenient_text_match(action["text"], self.node_identifier())
         return result
