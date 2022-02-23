@@ -2,6 +2,10 @@
 
 ...
 
+Setup:
+
+`pip install -r requirements.txt`
+
 ## Notes
 
 * The row_id from the A/B testing spreadsheets is ignored
