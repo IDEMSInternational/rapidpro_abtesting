@@ -5,6 +5,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from abtest import ABTest, FlowEditSheet
+from collections import defaultdict
 import csv
 import re
 import logging
@@ -70,31 +71,38 @@ def load_content_from_csv(filename):
 
 class MasterSheetParser(ABC):
     _MASTER_HEADER = ["flow_type", "flow_name", "sheet_name", "status"]
+    _MASTER_HEADER_OPTIONAL = ["order"]
     _N_COLUMNS = len(_MASTER_HEADER)
+    _N_OPTIONAL_COLUMNS = len(_MASTER_HEADER_OPTIONAL)
 
     _OPERATION_TYPE = 0
     _FLOW_NAME = 1
     _SHEET_NAME = 2
     _STATUS = 3
+    _ORDER = 4
 
     def __init__(self):
         self._sheets = dict()
         self._name = ""
         self._master_content = None
 
-    def get_flow_edit_sheets(self, config={}):
+    def get_flow_edit_sheet_groups(self, config={}):
         if self._master_content is None:
             logging.warning("Master sheet " + self._name + "could not be loaded.")
             return []
         if not self._is_valid_master_header(self._master_content[0]):
             logging.warning("Master sheet " + self._name + "has invalid header row.")
             return []
-        flow_operations = []
+        flow_operation_dict = defaultdict(list)
         for i, row in enumerate(self._master_content[1:]):
             debug_string = "Master sheet " + self._name + " row " + str(i+2) + ": "
             result = self._parse_row(row, debug_string, config)
             if result is not None:
-                flow_operations.append(result)
+                operation, order = result
+                flow_operation_dict[order].append(operation)
+        flow_operations = []
+        for order, operations in sorted(flow_operation_dict.items()):
+            flow_operations.append(operations)
         return flow_operations
 
     @abstractmethod
@@ -103,6 +111,9 @@ class MasterSheetParser(ABC):
 
     def _is_valid_master_header(self, row):
         if row[:type(self)._N_COLUMNS] == type(self)._MASTER_HEADER:
+            for entry,expected in zip(row[type(self)._N_COLUMNS:], type(self)._MASTER_HEADER_OPTIONAL):
+                if entry != expected:
+                    return False
             return True
         return False
 
@@ -116,16 +127,25 @@ class MasterSheetParser(ABC):
             sheet_name = row[type(self)._FLOW_NAME]
         operation_type = row[type(self)._OPERATION_TYPE]
         status = row[type(self)._STATUS]
+        if len(row) > type(self)._N_COLUMNS:
+            try:
+                order = row[type(self)._ORDER]
+                order = int(order)
+            except ValueError:
+                logging.warning(debug_string + "invalid order: " + order + ". Assuming 0.")
+                order = 0
+        else:
+            order = 0
 
         if status != "released":
             logging.info(debug_string + "Skipping because status is not released.")
             return None
         if operation_type == "flow_testing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return ABTest(sheet_name, content, config.get(sheet_name, None))
+            return ABTest(sheet_name, content, config.get(sheet_name, None)), order
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return FlowEditSheet(sheet_name, content, config.get(sheet_name, None))
+            return FlowEditSheet(sheet_name, content, config.get(sheet_name, None)), order
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 

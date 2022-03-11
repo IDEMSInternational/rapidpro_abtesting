@@ -983,11 +983,11 @@ class TestRapidProEditsLinear(unittest.TestCase):
 class TestMasterSheet(unittest.TestCase):
     def setUp(self):
         parser = CSVMasterSheetParser(["testdata/master_sheet.csv"])
-        self.floweditsheets = parser.get_flow_edit_sheets()
+        self.floweditsheets, = parser.get_flow_edit_sheet_groups()
 
     def test_split_master_sheet(self):
         parser = CSVMasterSheetParser(["testdata/master_sheet_part1.csv", "testdata/master_sheet_part2.csv"])
-        self.floweditsheets = parser.get_flow_edit_sheets()
+        self.floweditsheets, = parser.get_flow_edit_sheet_groups()
         self.test_apply_abtests_linear_onenodeperaction()
 
     def test_apply_abtests_linear_onenodeperaction(self):
@@ -1045,10 +1045,72 @@ class TestMasterSheet(unittest.TestCase):
         self.assertEqual(msgs4, exp4)
 
 
+class TestMasterSheetOrdered(unittest.TestCase):
+    def setUp(self):
+        parser = CSVMasterSheetParser(["testdata/master_sheet_ordered.csv"])
+        self.floweditsheet_groups = parser.get_flow_edit_sheet_groups()
+
+    def test_apply_abtests_linear(self):
+        filename = "testdata/Linear_OneNodePerAction.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheet_groups[0])
+        rpx.apply_abtests(self.floweditsheet_groups[1])
+        self.evaluate_result(rpx)
+
+    def evaluate_result(self, rpx):
+        self.groupA_name = self.floweditsheet_groups[0][0].groupA().name
+        self.groupB_name = self.floweditsheet_groups[0][0].groupB().name
+        exp1 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my person!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        # We apply the operations sequentially, unlike in TestMasterSheet.
+        # Therefore, the personalization is not applied to messages that have
+        # already been 1337tified
+        # TODO: Also catch expected warnings
+        exp2 = [
+            ('send_msg', 'The first personalizable message, my gal!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        exp3 = [
+            ('send_msg', 'The first personalizable message, my dude!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'Good morning, my dude!'),
+            ('send_msg', 'This is a test.'),
+        ]
+        # We apply the operations sequentially, unlike in TestMasterSheet.
+        # Therefore, the personalization is not applied to messages that have
+        # already been 1337tified
+        exp4 = [
+            ('send_msg', 'The first personalizable message, my person!'),
+            ('send_msg', 'Some generic message.'),
+            ('send_msg', 'g00d m0rn1ng!'),
+            ('send_msg', 'This is a test.'),
+        ]
+
+        # Traverse the flow with different group memberships and check the sent messages.
+        flows = rpx._data["flows"][0]
+        msgs1 = traverse_flow(flows, Context([self.groupA_name]))
+        self.assertEqual(msgs1, exp1)
+        variables2 = {"@fields.gender" : "woman"}
+        msgs2 = traverse_flow(flows, Context([self.groupB_name], variables=variables2))
+        self.assertEqual(msgs2, exp2)
+        variables3 = {"@fields.gender" : "man"}
+        msgs3 = traverse_flow(flows, Context([self.groupA_name], variables=variables3))
+        self.assertEqual(msgs3, exp3)
+        variables4 = {"@fields.gender" : "child"}
+        msgs4 = traverse_flow(flows, Context([self.groupB_name], variables=variables4))
+        self.assertEqual(msgs4, exp4)
+
+
 class TestMasterSheetWithConfig(unittest.TestCase):
     def setUp(self):
         parser = CSVMasterSheetParser(["testdata/master_sheet_cfg.csv"])
-        self.floweditsheets = parser.get_flow_edit_sheets({"Test2Assign_Some1337" : { "group_assignment" : "always B"}})
+        self.floweditsheets, = parser.get_flow_edit_sheet_groups({"Test2Assign_Some1337" : { "group_assignment" : "always B"}})
 
     def test_apply_abtests_linear_onenodeperaction(self):
         filename = "testdata/Linear_OneNodePerAction.json"

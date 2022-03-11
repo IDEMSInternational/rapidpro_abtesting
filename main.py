@@ -27,9 +27,10 @@ def main():
         sheet_parser = CSVMasterSheetParser(args.master_sheets)
     else:
         sheet_parser = GoogleMasterSheetParser(args.master_sheets)
-    flow_edit_sheets = sheet_parser.get_flow_edit_sheets(config)
+    flow_edit_sheet_groups = sheet_parser.get_flow_edit_sheet_groups(config)
     rpx = RapidProABTestCreator(args.input)
-    rpx.apply_abtests(flow_edit_sheets)
+    for flow_edit_sheets in flow_edit_sheet_groups:
+        rpx.apply_abtests(flow_edit_sheets)
     rpx.export_to_json(args.output)
 
 
