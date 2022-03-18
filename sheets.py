@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from abtest import ABTest, FlowEditSheet
+from abtest import ABTest, FlowEditSheet, TranslationEditSheet
 from collections import defaultdict
 import csv
 import re
@@ -146,6 +146,9 @@ class MasterSheetParser(ABC):
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
             return FlowEditSheet(sheet_name, content, config.get(sheet_name, None)), order
+        elif operation_type == "translation_editing":
+            content = self._get_content_from_sheet_name(sheet_name, debug_string)
+            return TranslationEditSheet(sheet_name, content, config.get(sheet_name, None)), order
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 
@@ -233,3 +236,9 @@ def floweditsheet_from_csv(filename):
     content = load_content_from_csv(filename)
     name = os.path.splitext(os.path.basename(filename))[0]
     return FlowEditSheet(name, content)
+
+
+def translationeditsheet_from_csv(filename):
+    content = load_content_from_csv(filename)
+    name = os.path.splitext(os.path.basename(filename))[0]
+    return TranslationEditSheet(name, content)

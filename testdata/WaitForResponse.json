@@ -203,6 +203,13 @@
               "cases": {}
             }
           },
+          "977e1238-f8fd-49fb-b970-087559e5557d": {
+            "position": {
+              "left": 780,
+              "top": 220
+            },
+            "type": "execute_actions"
+          },
           "fe4104a4-560e-46f4-bd30-98aec6c0b6a5": {
             "position": {
               "left": 120,
@@ -223,22 +230,140 @@
               "top": 380
             },
             "type": "execute_actions"
-          },
-          "977e1238-f8fd-49fb-b970-087559e5557d": {
-            "position": {
-              "left": 780,
-              "top": 220
-            },
-            "type": "execute_actions"
           }
         }
       },
-      "revision": 17,
+      "revision": 37,
       "expire_after_minutes": 10080,
       "metadata": {
-        "revision": 1
+        "revision": 36
       },
-      "localization": {}
+      "localization": {
+        "aar": {
+          "cee54fd0-a432-4bf6-b42a-2561627eb3b8": {
+            "text": [
+              "AFA-Hello."
+            ],
+            "quick_replies": [
+              "AFA-Yes",
+              "AFA-Fourtytwo",
+              "AFA-Nope"
+            ]
+          },
+          "d243928c-6d2c-4349-b6ff-23cfbce05c92": {
+            "name": [
+              "Yosss"
+            ]
+          },
+          "7d3a7c7b-218a-44a8-a5fc-a80062dceacd": {
+            "arguments": [
+              "yosss"
+            ]
+          },
+          "199562fb-77f0-4c06-99d2-38de6efff8e0": {
+            "name": [
+              "40 - 60"
+            ]
+          },
+          "ead5c97e-f960-406f-a87f-ac603b70c838": {
+            "name": [
+              "Nope"
+            ]
+          },
+          "177bcbae-6286-461a-a4ff-55c5fecd850a": {
+            "name": [
+              "Other"
+            ]
+          },
+          "ce5e63dc-1c14-41cb-b2a3-7da7172f82bc": {
+            "text": [
+              "hmmmmmm?"
+            ]
+          },
+          "e98e5691-f9a8-4895-891c-03f52811d3a2": {
+            "text": [
+              "Gracias"
+            ]
+          },
+          "e280f063-df2c-450e-9966-e3fc73d79a46": {
+            "text": [
+              "YO!"
+            ]
+          },
+          "9f9f7ee1-8489-4343-9c93-7b56105f9763": {
+            "text": [
+              "Awwwwww"
+            ]
+          }
+        },
+        "fra": {
+          "cee54fd0-a432-4bf6-b42a-2561627eb3b8": {
+            "text": [
+              "Bonjour! Pick an option"
+            ],
+            "quick_replies": [
+              "Oiu",
+              "catresomething",
+              "non"
+            ]
+          },
+          "d243928c-6d2c-4349-b6ff-23cfbce05c92": {
+            "name": [
+              "Oiu"
+            ]
+          },
+          "199562fb-77f0-4c06-99d2-38de6efff8e0": {
+            "name": [
+              "40 - 60"
+            ]
+          },
+          "ead5c97e-f960-406f-a87f-ac603b70c838": {
+            "name": [
+              "non"
+            ]
+          },
+          "177bcbae-6286-461a-a4ff-55c5fecd850a": {
+            "name": [
+              "something"
+            ]
+          },
+          "ce5e63dc-1c14-41cb-b2a3-7da7172f82bc": {
+            "text": [
+              "hmhmhmhm?"
+            ]
+          },
+          "e98e5691-f9a8-4895-891c-03f52811d3a2": {
+            "text": [
+              "Merci"
+            ]
+          },
+          "e280f063-df2c-450e-9966-e3fc73d79a46": {
+            "text": [
+              "Ok"
+            ]
+          },
+          "9f9f7ee1-8489-4343-9c93-7b56105f9763": {
+            "text": [
+              "Eeeeeeeeeeeeeeee"
+            ]
+          },
+          "7d3a7c7b-218a-44a8-a5fc-a80062dceacd": {
+            "arguments": [
+              "oui"
+            ]
+          },
+          "97a19bb7-a6a4-41c9-bf0f-c0e490ab28d1": {
+            "arguments": [
+              "44"
+            ]
+          },
+          "9643921e-f05c-47f3-8165-8645b5a67e92": {
+            "arguments": [
+              "nonnnn"
+            ]
+          }
+        }
+      }
     }
   ],
   "campaigns": [],

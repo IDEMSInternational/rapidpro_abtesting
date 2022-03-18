@@ -3,7 +3,7 @@ import copy
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
-from operations import FlowEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
+from operations import FlowEditOp, TranslationEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
 
 
 class SwitchCategory(object):
@@ -296,6 +296,6 @@ class TranslationEditSheet(FlowSheet):
         self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
-        edit_op = TranslationEditOp.create_edit_op(*row_new[:N_FIXED_COLS], debug_string, uuid_lookup=self._uuid_lookup, config=self._config)
+        edit_op = TranslationEditOp.create_edit_op(*row_new[:type(self).N_FIXED_COLS], debug_string, uuid_lookup=self._uuid_lookup, config=self._config)
         return edit_op
 

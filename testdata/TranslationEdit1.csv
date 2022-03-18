@@ -1,0 +1,2 @@
+type_of_edit,flow_id,original_row_id,node_identifier,original,language,replacement
+replace_bit_of_text,ABTesting_Pre,0,Some generic message.,French,fra,Togolese

@@ -6,7 +6,7 @@ from abtest import SwitchCategory
 from rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
 from testing_tools import Context
 from testing_tools import traverse_flow, find_final_destination
-from sheets import abtest_from_csv, floweditsheet_from_csv
+from sheets import abtest_from_csv, floweditsheet_from_csv, translationeditsheet_from_csv
 from sheets import CSVMasterSheetParser
 from contact_group import ContactGroup
 from uuid_tools import UUIDLookup
@@ -920,7 +920,6 @@ class TestRapidProABTestCreatorBranching(unittest.TestCase):
         self.assertEqual(output1, exp1)
 
 
-
 class TestRapidProEditsLinear(unittest.TestCase):
     def setUp(self):
         sheet1 = floweditsheet_from_csv("testdata/FlowEdit1_Gender.csv")
@@ -995,16 +994,20 @@ class TestMasterSheet(unittest.TestCase):
         rpx = RapidProABTestCreator(filename)
         rpx.apply_abtests(self.floweditsheets)
         self.evaluate_result(rpx)
+        flow = rpx._data["flows"][0]
+        self.assertEqual(flow["localization"]["fra"]["694779d8-034d-4fb3-bf7a-c6de04efaba5"]["text"][0], "Togolese message")
 
     def test_apply_abtests_linear_onenode4actions(self):
         filename = "testdata/Linear_OneNode4Actions.json"
         rpx = RapidProABTestCreator(filename)
         rpx.apply_abtests(self.floweditsheets)
         self.evaluate_result(rpx)
+        flow = rpx._data["flows"][0]
+        self.assertEqual(flow["localization"]["fra"]["694779d8-034d-4fb3-bf7a-c6de04efaba5"]["text"][0], "Togolese message")
 
     def evaluate_result(self, rpx):
-        self.groupA_name = self.floweditsheets[-1].groupA().name
-        self.groupB_name = self.floweditsheets[-1].groupB().name
+        self.groupA_name = self.floweditsheets[-2].groupA().name
+        self.groupB_name = self.floweditsheets[-2].groupB().name
         exp1 = [
             ('send_msg', 'The first personalizable message, my person!'),
             ('send_msg', 'Some generic message.'),
@@ -1242,6 +1245,28 @@ class TestNodesLayout(unittest.TestCase):
         flow =  { "nodes" : [node] }
         edit_op.apply_operation(flow, node)
 
+
+
+class TestTranslationEdits(unittest.TestCase):
+    # def setUp(self):
+    def test_wait_for_response(self):
+        sheet1 = translationeditsheet_from_csv("testdata/Test_TranslationEdits.csv")
+        self.sheets = [sheet1]
+        filename = "testdata/WaitForResponse.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_translationedits(self.sheets)
+
+        flow = rpx._data["flows"][0]
+        self.assertEqual(flow["localization"]["aar"]["ce5e63dc-1c14-41cb-b2a3-7da7172f82bc"]["text"][0], "Wut?!")
+        self.assertEqual(flow["localization"]["fra"]["ce5e63dc-1c14-41cb-b2a3-7da7172f82bc"]["text"][0], "hmhmhnhn!")
+        self.assertEqual(flow["localization"]["fra"]["cee54fd0-a432-4bf6-b42a-2561627eb3b8"]["quick_replies"], ["a@b.com", "99", "something"])
+        self.assertEqual(flow["localization"]["aar"]["7d3a7c7b-218a-44a8-a5fc-a80062dceacd"]["arguments"][0], "yappp")
+        self.assertEqual(flow["localization"]["aar"]["ead5c97e-f960-406f-a87f-ac603b70c838"]["name"][0], "Nohoho")
+        self.assertEqual(flow["localization"]["aar"]["199562fb-77f0-4c06-99d2-38de6efff8e0"]["name"][0], "forty - 60")
+        # Expected warnings:
+        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: No category name for tranlsation "{'arguments': ['yappp']}".
+        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: No case arguments provided for tranlsation "{'category_name': 'Nohoho'}".
+        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: Translation of case "97a19bb7-a6a4-41c9-bf0f-c0e490ab28d1" does not exist.
 
 if __name__ == '__main__':
     unittest.main()

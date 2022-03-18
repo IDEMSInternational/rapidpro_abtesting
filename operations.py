@@ -122,6 +122,12 @@ class GenericEditOp(ABC):
     def node_identifier(self):
         return self._node_identifier
 
+    def bit_of_text(self):
+        return self._bit_of_text
+
+    def default_text(self):
+        return self._default_text
+
     def matches_unique_flow(self):
         return not self._flow_match_regex
 
@@ -274,14 +280,8 @@ class FlowEditOp(GenericEditOp):
         
         return snippet.node_variations()
 
-    def bit_of_text(self):
-        return self._bit_of_text
-
     def split_by(self):
         return self._split_by
-
-    def default_text(self):
-        return self._default_text
 
     def categories(self):
         return self._categories
@@ -619,8 +619,155 @@ class TranslationEditOp(GenericEditOp):
                          uuid_lookup, config)
         self._language = split_by
 
+    @abstractmethod
+    def _replace_translation(self, localization, node):
+        pass
+
     def apply_operation(self, flow, node):
-        raise NotImplementedError
+        localization = flow.get("localization", {}).get(self._language)
+        if not localization:
+            logging.warning(f'{self._debug_string} Flow {flow["name"]} has no localization for language {self._language}.')
+            [node]
+
+        self._replace_translation(localization, node)
+        return [node]
+
+    def _replace_text_in_message(self, localization, node):
+        # TODO: Code duplication with FlowEditOp
+        total_occurrences = 0
+        for action in node["actions"]:
+            if action["type"] == "send_msg":
+                tr_action = localization.get(action["uuid"])
+                if not tr_action:
+                    logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
+                    continue
+                if not "text" in tr_action:
+                    logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no text.')
+                    continue
+                text = tr_action["text"][0]  # not sure why in translations the text is a list.
+                total_occurrences += text.count(self.bit_of_text())
+                text_new = text.replace(self.bit_of_text(), self.default_text())
+                tr_action["text"][0] = text_new
+        # TODO: If we don't just store the node uuid, but also action uuid
+        #   where edit_op is applicable, we could give more helpful
+        #   messages here by referring to the action text that doesn't match
+        if total_occurrences == 0:
+            # This might happen if we're trying to replace text that has
+            # already had a replacement applied to it.
+            logging.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(self.bit_of_text()))
+        if total_occurrences >= 2:
+            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(self.bit_of_text()))
+
+    def _replace_in_action_list_field(self, localization, node, action_field):
+        # TODO: Code duplication with FlowEditOp
+        for bit_of_text, repl_text in zip(self.bit_of_text().split(';'), self.default_text().split(';')):
+            total_occurrences = 0
+            for action in node["actions"]:
+                if action["type"] == "send_msg":
+                    tr_action = localization.get(action["uuid"])
+                    if not tr_action:
+                        logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
+                        continue
+                    if not "text" in tr_action:
+                        logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no {action_field}.')
+                        continue
+                    for i, text in enumerate(tr_action[action_field]):
+                        total_occurrences += text.count(bit_of_text)
+                        text_new = text.replace(bit_of_text, repl_text)
+                        tr_action[action_field][i] = text_new
+            if total_occurrences == 0:
+                logging.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(bit_of_text))
+            if total_occurrences >= 2:
+                logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(bit_of_text))
+
+    def _replace_text_in_quick_replies(self, localization, node):
+        self._replace_in_action_list_field(localization, node, "quick_replies")
+
+    def _replace_attachments(self, localization, node):
+        self._replace_in_action_list_field(localization, node, "attachments")
+
+    def _replace_wait_for_response_cases(self, localization, node):
+        '''Modifies the input node by replacing the content of a list-field
+        (whose name is specified in action_field) in an action of a send_msg node.
+
+        Args:
+            replacement_text (str): JSON string encoding a list of cases.
+                Each case is a dict with fields "category_name", "type", "arguments".
+        '''
+        replacement_text = self.default_text()
+        try:
+            replacement_cases = json.loads(replacement_text)
+        except ValueError:
+            logging.warning(self.debug_string() + 'Malformed replacement value "{}" (should be JSON).'.format(replacement_text))
+            return
+        if type(replacement_cases) != list or len(replacement_cases) != len(node["router"]["cases"]):
+            logging.warning(self.debug_string() + 'Replacement should be list of length {} but is "{}".'.format(len(node["router"]["cases"]), replacement_text))
+            return
+        for case, node_case in zip(replacement_cases, node["router"]["cases"]):
+            # TODO: Don't ignore bit of text
+            if not {"arguments"}.issubset(case.keys()):
+                logging.warning(self.debug_string() + 'No case arguments provided for tranlsation "{}".'.format(case))
+            else:
+                tr_case = localization.get(node_case["uuid"])
+                if not tr_case:
+                    logging.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" does not exist.')
+                elif not "arguments" in tr_case:
+                    logging.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" has no arguments.')
+                else:
+                    for i, arg in enumerate(case["arguments"]):
+                        if i < len(tr_case["arguments"]):
+                            # There's a bug in RapidPro where the translation only has the first argument
+                            tr_case["arguments"][i] = arg
+
+            if not {"category_name"}.issubset(case.keys()):
+                logging.warning(self.debug_string() + 'No category name for tranlsation "{}".'.format(case))
+                continue
+            node_category = next(cat for cat in node["router"]["categories"] if cat["uuid"] == node_case["category_uuid"])
+            tr_category = localization.get(node_category["uuid"])
+            if not tr_category:
+                logging.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" does not exist.')
+                continue
+            if not "name" in tr_category:
+                logging.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" has no name.')
+                continue
+            tr_category["name"][0] = case["category_name"]
 
 
-TRANSLATIONEDIT_OPERATION_TYPES = {}
+class ReplaceBitOfTextTranslationEditOp(TranslationEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_translation(self, localization, node):
+        self._replace_text_in_message(localization, node)
+
+
+class ReplaceQuickReplyTranslationEditOp(TranslationEditOp):
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_translation(self, localization, node):
+        self._replace_text_in_quick_replies(localization, node)
+
+
+class ReplaceWaitForResponseCasesTranslationEditOp(TranslationEditOp):
+
+    def parse_node_identifier(node_identifier):
+        try:
+            return json.loads(node_identifier)
+        except ValueError:
+            return None
+
+    def is_match_for_node(self, node):
+        return self._matches_wait_for_response_cases(node)
+
+    def _replace_translation(self, localization, node):
+        self._replace_wait_for_response_cases(localization, node)
+
+
+TRANSLATIONEDIT_OPERATION_TYPES = {
+    "replace_bit_of_text" : ReplaceBitOfTextTranslationEditOp,
+    "replace_quick_replies" : ReplaceQuickReplyTranslationEditOp,
+    "replace_wait_for_response_cases" : ReplaceWaitForResponseCasesTranslationEditOp,
+}

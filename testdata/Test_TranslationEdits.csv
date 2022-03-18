@@ -1,0 +1,5 @@
+type_of_edit,flow_id,original_row_id,node_identifier,original,language,replacement
+replace_bit_of_text,Wait for response example,0,I don't get it.,hmmmmmm?,aar,Wut?!
+replace_bit_of_text,Wait for response example,0,I don't get it.,hmhm?,fra,hnhn!
+replace_quick_replies,Wait for response example,1,Hello. Choose an option.,Oiu;catresomething;non,fra,a@b.com;99;something
+replace_wait_for_response_cases,Wait for response example,2,"[{""category_name"": ""Yes"", ""type"": ""has_any_word"", ""arguments"": [""yes""]},  {""category_name"": ""No"", ""type"": ""has_phrase"", ""arguments"": [""no never""]},  {""category_name"": ""40 - 60"", ""arguments"": [""40"", ""60""], ""type"": ""has_number_between""}]",THIS FIELD IS IGNORED,aar,"[{""arguments"": [""yappp""]},  {""category_name"": ""Nohoho""},  {""category_name"": ""forty - 60"", ""arguments"": [""forty"", ""ignored due to rapid pro bug""], ""type"": ""this is ignored""}]"

@@ -122,7 +122,15 @@
       "metadata": {
         "revision": 6
       },
-      "localization": {}
+      "localization": {
+        "fra" : {
+          "694779d8-034d-4fb3-bf7a-c6de04efaba5" : {
+            "text" : [
+              "French message"
+            ]
+          }
+        }
+      }
     }
   ],
   "campaigns": [],
