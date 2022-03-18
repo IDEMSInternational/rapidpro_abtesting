@@ -83,19 +83,10 @@ class RapidProABTestCreator(object):
         return results
 
 
-    def apply_abtests(self, floweditsheets):
-        '''Modify the internal RapidPro flow data by apply the A/B tests.'''
-
-        # List of pairs of node uuids and test_ops, each pair indicating that
-        # before the given node the user should have been assigned to one of the
-        # `ContactGroup`s for the A/B test the edit_op belongs to
-        assign_to_group_ops = []
-        # Dictionary mapping each node (indexed by uuid) to the list of
-        # `FlowEditOp`s that should be applied to the node.
+    def get_edit_ops_by_node(self, editsheets):
         edit_ops_by_node = defaultdict(list)
-
         # Find nodes affected by operations in some way
-        for sheet in floweditsheets:
+        for sheet in editsheets:
             sheet.parse_rows(self._uuid_lookup)
             for edit_op in sheet.edit_ops():
                 uuids = self._find_matching_nodes(edit_op)
@@ -105,7 +96,11 @@ class RapidProABTestCreator(object):
                     logging.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
                     edit_ops_by_node[uuid].append(edit_op)
+        return edit_ops_by_node
 
+
+    def apply_editsheets(self, editsheets, normalize_layout=False):
+        edit_ops_by_node = self.get_edit_ops_by_node(editsheets)
         # For each nodes affected by A/B tests, apply the test operations
         for flow in self._data["flows"]:
             # Iterate over copy of node list because the real list of nodes
@@ -116,6 +111,21 @@ class RapidProABTestCreator(object):
                     apply_editops_to_node(flow, node, edit_ops)
             # Make sure all flow nodes have positive coordinates
             nodes_layout.normalize_flow_layout(flow)
+
+
+    def apply_abtests(self, floweditsheets, translationeditsheets=None):
+        '''Modify the internal RapidPro flow data by apply the A/B tests.'''
+
+        # List of pairs of node uuids and test_ops, each pair indicating that
+        # before the given node the user should have been assigned to one of the
+        # `ContactGroup`s for the A/B test the edit_op belongs to
+        assign_to_group_ops = []
+        # Dictionary mapping each node (indexed by uuid) to the list of
+        # `FlowEditOp`s that should be applied to the node.
+        translationeditsheets = translationeditsheets or []
+
+        self.apply_editsheets(floweditsheets, normalize_layout=True)
+        self.apply_editsheets(translationeditsheets, normalize_layout=False)
 
         # Collect all previously existing and newly created groups
         self._data["groups"] = []

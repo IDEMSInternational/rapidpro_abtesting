@@ -3,7 +3,7 @@ import copy
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
-from operations import FlowEditOp, OPERATION_TYPES
+from operations import FlowEditOp, FLOWEDIT_OPERATION_TYPES
 
 
 class SwitchCategory(object):
@@ -26,6 +26,8 @@ class FlowSheet(ABC):
     FLOW_ID = 1
     ROW_ID = 2
     NODE_IDENTIFIER = 3
+
+    OPERATION_TYPES = FLOWEDIT_OPERATION_TYPES
 
     def __init__(self, name, rows, config=None):
         '''
@@ -64,11 +66,11 @@ class FlowSheet(ABC):
             return None
 
         op_type_str = row[type(self).TYPE]
-        if not op_type_str in OPERATION_TYPES:
+        if not op_type_str in type(self).OPERATION_TYPES:
             logging.warning(debug_string + 'invalid type.')
             return None
 
-        return OPERATION_TYPES[op_type_str]
+        return type(self).OPERATION_TYPES[op_type_str]
 
     def _convert_row_id_to_int(self, row):
         try:
@@ -265,4 +267,3 @@ class ABTest(FlowSheet):
 
     def get_groups(self):
         return list(self._group_pair)
-
