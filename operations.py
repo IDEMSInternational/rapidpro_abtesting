@@ -42,25 +42,19 @@ class FlowSnippet(object):
         return self._root_uuid
 
 
-class FlowEditOp(ABC):
-
-    def needs_parameter():
-        '''Does this operation read a value from the "change" column?'''
-        return True
-
-    def parse_node_identifier(node_identifier):
-        '''Return parsed node identifier or None if it is invalid.'''
-        return node_identifier
-
-    def create_edit_op(op_type, flow_id, row_id, node_identifier, bit_of_text,
+class GenericEditOp(ABC):
+    # TODO: bit_of_text should be renamed to original_content (or content_to_replace),
+    # default_text should be renamed to default_replacement_content.
+    @classmethod
+    def create_edit_op(cls, op_type, flow_id, row_id, node_identifier, bit_of_text,
                        split_by, default_text, debug_string,
                        has_node_for_other_category=True,
                        assign_to_group=False,
                        uuid_lookup=None, config=None):
-        if op_type not in FLOWEDIT_OPERATION_TYPES:
+        if op_type not in cls.get_operation_types():
             logging.warning(debug_string + 'invalid operation type.')
             return None
-        class_name = FLOWEDIT_OPERATION_TYPES[op_type]
+        class_name = cls.get_operation_types()[op_type]
         parsed_node_identifier = class_name.parse_node_identifier(node_identifier)
         if parsed_node_identifier is None:
             logging.warning(debug_string + 'invalid node identifier.')
@@ -90,65 +84,30 @@ class FlowEditOp(ABC):
         else:
             self._node_identifier = node_identifier
             self._node_match_regex = False
-        self._bit_of_text = bit_of_text
-        self._split_by = split_by
-        self._default_text = default_text
-        self._categories = []
         self._debug_string = debug_string
-        self._has_node_for_other_category = has_node_for_other_category
-        self._assign_to_group = assign_to_group  # to be removed
+        self._bit_of_text = bit_of_text
+        self._default_text = default_text
         self._config = config or {}
-        self._process_uuid_lookup(uuid_lookup)
 
-    def add_category(self, category, uuid_lookup=None):
-        # TODO: Perform UUID lookup if type is has_group
-        # What if multiple sheets refer to the same group
-        # which is only created by an A/B Test op?
-        # Store uuid_lookup in Op and only process it
-        # lazily?
-        self._categories.append(category)
+    @classmethod
+    @abstractmethod
+    def get_operation_types(cls):
+        pass
 
-    def _process_uuid_lookup(self, uuid_lookup):
+    @abstractmethod
+    def apply_operation(self, flow, node):
         pass
 
     @abstractmethod
     def is_match_for_node(self, node):
         pass
 
-    def apply_operation(self, flow, node):
-        '''Apply the operation to a given node.
+    def _process_uuid_lookup(self, uuid_lookup):
+        pass
 
-        Replaces the node with an appropriate flow snippet.
-
-        Returns:
-            list of nodes: variations of the input node that further
-                operations can be applied to.
-        '''
-
-        uuid = node["uuid"]
-        node_is_entrypoint = flow["nodes"][0]["uuid"] == uuid
-        incoming_edges = nt.find_incoming_edges(flow, uuid)
-
-        flow["nodes"].remove(node)
-        nodes_layout = NodesLayout(flow.get("_ui", dict()).get("nodes"))
-        node_layout = nodes_layout.get_node(uuid)
-        snippet = self._get_flow_snippet(node, node_layout)
-        nodes_layout.replace(uuid, snippet.nodes_layout())
-        if "_ui" in flow:
-            flow["_ui"]["nodes"] = nodes_layout.layout()
-
-        # Insert the new snippet.
-        # If node was entrypoint, snippet has to become entrypoint
-        if node_is_entrypoint:
-            flow["nodes"] = snippet.nodes() + flow["nodes"]
-        else:
-            flow["nodes"] = flow["nodes"] + snippet.nodes()
-
-        # Redirect edges that went into the node to the snippet root
-        for edge in incoming_edges:
-            edge["destination_uuid"] = snippet.root_uuid()
-        
-        return snippet.node_variations()
+    def parse_node_identifier(node_identifier):
+        '''Return parsed node identifier or None if it is invalid.'''
+        return node_identifier
 
     def debug_string(self):
         '''Returns a human-readable identifier of sheet/row of the FlowEditOp.'''
@@ -162,28 +121,6 @@ class FlowEditOp(ABC):
 
     def node_identifier(self):
         return self._node_identifier
-
-    def bit_of_text(self):
-        return self._bit_of_text
-
-    def split_by(self):
-        return self._split_by
-
-    def default_text(self):
-        return self._default_text
-
-    def categories(self):
-        return self._categories
-
-    def assign_to_group(self):
-        return self._assign_to_group  # to be removed
-
-    def has_node_for_other_category(self):
-        return self._has_node_for_other_category
-
-    @abstractmethod
-    def _get_flow_snippet(self, node, node_layout=None):
-        pass
 
     def matches_unique_flow(self):
         return not self._flow_match_regex
@@ -267,6 +204,97 @@ class FlowEditOp(ABC):
             if action["type"] == "set_contact_status" and "@contact.status" == self.node_identifier() and str(self.bit_of_text()) == str(action["status"]):
                 return i
         return -1
+
+
+class FlowEditOp(GenericEditOp):
+    @classmethod
+    def get_operation_types(cls):
+        return FLOWEDIT_OPERATION_TYPES
+
+    def needs_parameter():
+        '''Does this operation read a value from the "change" column?'''
+        return True
+
+    def __init__(self, flow_id, row_id, node_identifier, bit_of_text, split_by,
+                 default_text, debug_string,
+                 has_node_for_other_category=True,
+                 assign_to_group=False,
+                 uuid_lookup=None,
+                 config=None):
+        super().__init__(flow_id, row_id, node_identifier, bit_of_text,
+                         split_by, default_text, debug_string,
+                         has_node_for_other_category, assign_to_group,
+                         uuid_lookup, config)
+        self._split_by = split_by
+        self._categories = []
+        self._has_node_for_other_category = has_node_for_other_category
+        self._assign_to_group = assign_to_group  # to be removed
+        self._process_uuid_lookup(uuid_lookup)
+
+    def add_category(self, category, uuid_lookup=None):
+        # TODO: Perform UUID lookup if type is has_group
+        # What if multiple sheets refer to the same group
+        # which is only created by an A/B Test op?
+        # Store uuid_lookup in Op and only process it
+        # lazily?
+        self._categories.append(category)
+
+    def apply_operation(self, flow, node):
+        '''Apply the operation to a given node.
+
+        Replaces the node with an appropriate flow snippet.
+
+        Returns:
+            list of nodes: variations of the input node that further
+                operations can be applied to.
+        '''
+
+        uuid = node["uuid"]
+        node_is_entrypoint = flow["nodes"][0]["uuid"] == uuid
+        incoming_edges = nt.find_incoming_edges(flow, uuid)
+
+        flow["nodes"].remove(node)
+        nodes_layout = NodesLayout(flow.get("_ui", dict()).get("nodes"))
+        node_layout = nodes_layout.get_node(uuid)
+        snippet = self._get_flow_snippet(node, node_layout)
+        nodes_layout.replace(uuid, snippet.nodes_layout())
+        if "_ui" in flow:
+            flow["_ui"]["nodes"] = nodes_layout.layout()
+
+        # Insert the new snippet.
+        # If node was entrypoint, snippet has to become entrypoint
+        if node_is_entrypoint:
+            flow["nodes"] = snippet.nodes() + flow["nodes"]
+        else:
+            flow["nodes"] = flow["nodes"] + snippet.nodes()
+
+        # Redirect edges that went into the node to the snippet root
+        for edge in incoming_edges:
+            edge["destination_uuid"] = snippet.root_uuid()
+        
+        return snippet.node_variations()
+
+    def bit_of_text(self):
+        return self._bit_of_text
+
+    def split_by(self):
+        return self._split_by
+
+    def default_text(self):
+        return self._default_text
+
+    def categories(self):
+        return self._categories
+
+    def assign_to_group(self):
+        return self._assign_to_group  # to be removed
+
+    def has_node_for_other_category(self):
+        return self._has_node_for_other_category
+
+    @abstractmethod
+    def _get_flow_snippet(self, node, node_layout=None):
+        pass
 
     def _replace_saved_value(self, node, value, action_index):
         action = node["actions"][action_index]
@@ -572,3 +600,27 @@ FLOWEDIT_OPERATION_TYPES = {
     "replace_flow" : ReplaceFlowFlowEditOp,  # TODO: rename replace_entered_flow?
     "replace_wait_for_response_cases" : ReplaceWaitForResponseCasesFlowEditOp,
 }
+
+
+class TranslationEditOp(GenericEditOp):
+    @classmethod
+    def get_operation_types(cls):
+        return TRANSLATIONEDIT_OPERATION_TYPES
+
+    def __init__(self, flow_id, row_id, node_identifier, bit_of_text, split_by,
+                 default_text, debug_string,
+                 has_node_for_other_category=True,
+                 assign_to_group=False,
+                 uuid_lookup=None,
+                 config=None):
+        super().__init__(flow_id, row_id, node_identifier, bit_of_text,
+                         split_by, default_text, debug_string,
+                         has_node_for_other_category, assign_to_group,
+                         uuid_lookup, config)
+        self._language = split_by
+
+    def apply_operation(self, flow, node):
+        raise NotImplementedError
+
+
+TRANSLATIONEDIT_OPERATION_TYPES = {}

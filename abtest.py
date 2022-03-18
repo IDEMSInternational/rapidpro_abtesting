@@ -3,7 +3,7 @@ import copy
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
-from operations import FlowEditOp, FLOWEDIT_OPERATION_TYPES
+from operations import FlowEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
 
 
 class SwitchCategory(object):
@@ -267,3 +267,35 @@ class ABTest(FlowSheet):
 
     def get_groups(self):
         return list(self._group_pair)
+
+
+class TranslationEditSheet(FlowSheet):
+    FIXED_COLS = ["type_of_edit", "flow_id", "original_row_id", "node_identifier", "original", "language", "replacement"]
+    N_FIXED_COLS = len(FIXED_COLS)
+    # Column indices
+    BIT_OF_TEXT = 4
+    LANGUAGE = 5
+    REPLACEMENT_TEXT = 6
+
+    OPERATION_TYPES = TRANSLATIONEDIT_OPERATION_TYPES
+
+    def _get_category_names(self, row):
+        return []
+
+    def _row_to_edit_op(self, row, index):
+        debug_string = '{} {} row {}: '.format(type(self).__name__, self._name, index+2)
+        op_type = self._get_operation_type(row, debug_string)
+        if op_type is None:
+            return None
+
+        if len(row) < type(self).N_FIXED_COLS:
+            logging.warning(debug_string + 'too few entries.')
+            return None
+
+        row_new = copy.copy(row)
+        self._convert_row_id_to_int(row_new)
+
+        # Unpack the row entries to create edit op
+        edit_op = TranslationEditOp.create_edit_op(*row_new[:N_FIXED_COLS], debug_string, uuid_lookup=self._uuid_lookup, config=self._config)
+        return edit_op
+
