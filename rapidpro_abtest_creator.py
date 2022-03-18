@@ -84,6 +84,9 @@ class RapidProABTestCreator(object):
 
 
     def get_edit_ops_by_node(self, editsheets):
+        # Returns:
+        #     Dictionary mapping each node (indexed by uuid) to the list of
+        #     `FlowEditOp`s that should be applied to the node.
         edit_ops_by_node = defaultdict(list)
         # Find nodes affected by operations in some way
         for sheet in editsheets:
@@ -113,24 +116,20 @@ class RapidProABTestCreator(object):
             nodes_layout.normalize_flow_layout(flow)
 
 
-    def apply_abtests(self, floweditsheets, translationeditsheets=None):
+    def apply_abtests(self, floweditsheets):
         '''Modify the internal RapidPro flow data by apply the A/B tests.'''
 
-        # List of pairs of node uuids and test_ops, each pair indicating that
-        # before the given node the user should have been assigned to one of the
-        # `ContactGroup`s for the A/B test the edit_op belongs to
-        assign_to_group_ops = []
-        # Dictionary mapping each node (indexed by uuid) to the list of
-        # `FlowEditOp`s that should be applied to the node.
-        translationeditsheets = translationeditsheets or []
-
         self.apply_editsheets(floweditsheets, normalize_layout=True)
-        self.apply_editsheets(translationeditsheets, normalize_layout=False)
 
         # Collect all previously existing and newly created groups
         self._data["groups"] = []
         for group in self._uuid_lookup.all_groups():
             self._data["groups"].append(group.to_json_group())
+
+
+    def apply_translationedits(self, translationeditsheets):
+        '''Modify the internal RapidPro flow data by applying Translation changes.'''
+        self.apply_editsheets(translationeditsheets)
 
 
     def export_to_json(self, filename):
