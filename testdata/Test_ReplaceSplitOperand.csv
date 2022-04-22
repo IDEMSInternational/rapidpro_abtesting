@@ -1,0 +1,2 @@
+type_of_edit,flow_id,original_row_id,node_identifier,change,change:Replaced,assign_to_group
+replace_split_operand,SplitByExample,2,"{""operand"": ""@fields.something"", ""cases"": [{""category_name"": ""Yes"", ""type"": ""has_any_word"", ""arguments"": [""yes""]},  {""category_name"": ""No"", ""type"": ""has_any_word"", ""arguments"": [""no""]}]}",@fields.something,@fields.something_else,FALSE

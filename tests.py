@@ -802,6 +802,35 @@ class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
         self.assertEqual(msgs, make_exp('I don\'t get it.') + make_exp('That\'s too bad.'))
 
 
+class TestRapidProABTestCreatorReplaceSplitOperand(unittest.TestCase):
+    # def setUp(self):
+    def test_wait_for_response(self):
+        abtest1 = abtest_from_csv("testdata/Test_ReplaceSplitOperand.csv")
+        self.abtests = [abtest1]
+        filename = "testdata/SplitByExample.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+        make_exp = lambda s: [('send_msg', 'Start'), ('send_msg', s)]
+
+        flows = rpx._data["flows"][0]
+        groupsA = [self.abtests[0].groupA().name]
+        groupsB = [self.abtests[0].groupB().name]
+
+        msgs = traverse_flow(flows, Context(groupsA, variables={"@fields.something" : "Yes", "@fields.something_else" : "X"}))
+        self.assertEqual(msgs, make_exp('Yes'))
+        msgs = traverse_flow(flows, Context(groupsA, variables={"@fields.something" : "No", "@fields.something_else" : "X"}))
+        self.assertEqual(msgs, make_exp('No'))
+        msgs = traverse_flow(flows, Context(groupsA, variables={"@fields.something" : "X", "@fields.something_else" : "X"}))
+        self.assertEqual(msgs, make_exp('Other'))
+
+        msgs = traverse_flow(flows, Context(groupsB, variables={"@fields.something_else" : "Yes", "@fields.something" : "X"}))
+        self.assertEqual(msgs, make_exp('Yes'))
+        msgs = traverse_flow(flows, Context(groupsB, variables={"@fields.something_else" : "No", "@fields.something" : "X"}))
+        self.assertEqual(msgs, make_exp('No'))
+        msgs = traverse_flow(flows, Context(groupsB, variables={"@fields.something_else" : "X", "@fields.something" : "X"}))
+        self.assertEqual(msgs, make_exp('Other'))
+
+
 class TestRapidProABTestCreatorBranching(unittest.TestCase):
 
     def set_up_branching(self, filename):
