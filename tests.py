@@ -831,6 +831,38 @@ class TestRapidProABTestCreatorReplaceSplitOperand(unittest.TestCase):
         self.assertEqual(msgs, make_exp('Other'))
 
 
+class TestRapidProABTestCreatorPrependSendMsgAction(unittest.TestCase):
+    # def setUp(self):
+    def test_wait_for_response(self):
+        abtest1 = abtest_from_csv("testdata/Test_PrependSendMsgAction.csv")
+        self.abtests = [abtest1]
+        filename = "testdata/Linear_NodeWith3Actions.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+
+        flows = rpx._data["flows"][0]
+        groupsA = [self.abtests[0].groupA().name]
+        groupsB = [self.abtests[0].groupB().name]
+
+        msgs = traverse_flow(flows, Context(groupsA))
+        self.assertEqual(msgs, [
+                ('send_msg', 'Message A'),
+                ('send_msg', 'The first personalizable message.'), 
+                ('send_msg', 'Some generic message.'),
+                ('send_msg', 'Good morning!'),
+                ('send_msg', 'This is a test.'),
+        ])
+
+        msgs = traverse_flow(flows, Context(groupsB))
+        self.assertEqual(msgs, [
+                ('send_msg', 'Message B'),
+                ('send_msg', 'The first personalizable message, my friend!'), 
+                ('send_msg', 'Some generic message.'),
+                ('send_msg', 'Good morning!'),
+                ('send_msg', 'This is a test.'),
+        ])
+
+
 class TestRapidProABTestCreatorBranching(unittest.TestCase):
 
     def set_up_branching(self, filename):
