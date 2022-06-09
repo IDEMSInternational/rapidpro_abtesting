@@ -638,9 +638,27 @@ class ReplaceSplitOperandFlowEditOp(FlowEditOp):
 
 
 class PrependSendMsgActionFlowEditOp(FlowEditOp):
+    
+    def needs_parameter():
+        return False
 
     def is_match_for_node(self, node):
         return self._matches_message_text(node)
+
+    def _replace_content_in_node(self, node, text):
+        self._prepend_send_msg_action(node, text)
+
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
+
+
+class PrependSendMsgActionToSaveValueNodeFlowEditOp(FlowEditOp):
+
+    def needs_parameter():
+        return False
+
+    def is_match_for_node(self, node):
+        return self._matches_save_value(node)
 
     def _replace_content_in_node(self, node, text):
         self._prepend_send_msg_action(node, text)
@@ -661,6 +679,7 @@ FLOWEDIT_OPERATION_TYPES = {
     "replace_wait_for_response_cases" : ReplaceWaitForResponseCasesFlowEditOp,
     "replace_split_operand" : ReplaceSplitOperandFlowEditOp,
     "prepend_send_msg_action" : PrependSendMsgActionFlowEditOp,
+    "prepend_send_msg_action_to_save_value_node" : PrependSendMsgActionFlowEditOp,
 }
 
 

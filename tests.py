@@ -593,6 +593,29 @@ class TestOperations(unittest.TestCase):
         msgs3 = traverse_flow(flow, Context(random_choices=[1]))
         self.assertEqual(msgs3, exp_common)
 
+    def test_prepend_send_msg_action_to_save_value_node(self):
+        row = ['prepend_send_msg_action_to_save_value_node', '', 0, '@fields.variable', 'ignored value', '@contact.groups', 'Msg Q']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str", has_node_for_other_category=True)
+        edit_op.add_category(SwitchCategory("CatA", "has_group", ["", "GroupA"], "Msg A"))
+        edit_op.add_category(SwitchCategory("CatB", "has_group", ["", "GroupB"], "Msg B"))
+
+        input_node = copy.deepcopy(test_value_actions_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 3)
+
+        # Turn snippet into complete flow and simulate it.
+        flow = {"nodes" : flow_snippet.nodes()}
+        exp_common = [('set_contact_name', 'Bob Smith'), 
+                      ('set_contact_language', 'eng'),
+                      ('set_contact_field', 'Variable'),
+                      ('set_run_result', 'Result Number 1')]
+        msgs2 = traverse_flow(flow, Context())
+        self.assertEqual(msgs2, [('send_msg', 'Msg Q')] + exp_common)
+        msgs2 = traverse_flow(flow, Context(["GroupA"]))
+        self.assertEqual(msgs2, [('send_msg', 'Msg A')] + exp_common)
+        msgs3 = traverse_flow(flow, Context(["GroupB"]))
+        self.assertEqual(msgs3, [('send_msg', 'Msg B')] + exp_common)
+
 
 class TestRapidProABTestCreatorMethods(unittest.TestCase):
     def setUp(self):
