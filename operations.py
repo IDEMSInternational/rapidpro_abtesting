@@ -679,7 +679,7 @@ FLOWEDIT_OPERATION_TYPES = {
     "replace_wait_for_response_cases" : ReplaceWaitForResponseCasesFlowEditOp,
     "replace_split_operand" : ReplaceSplitOperandFlowEditOp,
     "prepend_send_msg_action" : PrependSendMsgActionFlowEditOp,
-    "prepend_send_msg_action_to_save_value_node" : PrependSendMsgActionFlowEditOp,
+    "prepend_send_msg_action_to_save_value_node" : PrependSendMsgActionToSaveValueNodeFlowEditOp,
 }
 
 

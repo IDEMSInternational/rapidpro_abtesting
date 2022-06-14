@@ -1,0 +1,94 @@
+{
+  "version": "13",
+  "site": "https://rapidpro.idems.international",
+  "flows": [
+    {
+      "name": "Flow with save value",
+      "uuid": "1ffc97f1-6767-42ce-ac8b-01f39b137c8d",
+      "spec_version": "13.1.0",
+      "language": "eng",
+      "type": "messaging",
+      "nodes": [
+        {
+          "uuid": "fce48541-8ad5-43d3-8437-4a574c48e2ec",
+          "actions": [
+            {
+              "attachments": [],
+              "text": "First message",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "694abe91-08cd-48b8-8b9c-bdb0d8acefb6"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "4c7cd4f8-7a0f-4feb-8a12-e5b84c9b0734",
+              "destination_uuid": "162cd753-f54d-4768-84c3-298a3e1cebcd"
+            }
+          ]
+        },
+        {
+          "uuid": "162cd753-f54d-4768-84c3-298a3e1cebcd",
+          "actions": [
+            {
+              "uuid": "8f8fb7d4-2572-4129-9089-26eb61e9f25b",
+              "type": "set_contact_field",
+              "field": {
+                "key": "type_of_media",
+                "name": "Type of Media"
+              },
+              "value": "high medium low"
+            },
+            {
+              "attachments": [],
+              "text": "Last message",
+              "type": "send_msg",
+              "quick_replies": [],
+              "uuid": "d49c2fa7-6269-4400-9954-60a2bb8c509e"
+            }
+          ],
+          "exits": [
+            {
+              "uuid": "522ce964-05cf-4c39-9a0b-8277d3acba2c",
+              "destination_uuid": null
+            }
+          ]
+        }
+      ],
+      "_ui": {
+        "nodes": {
+          "fce48541-8ad5-43d3-8437-4a574c48e2ec": {
+            "position": {
+              "left": 0,
+              "top": 80
+            },
+            "type": "execute_actions"
+          },
+          "162cd753-f54d-4768-84c3-298a3e1cebcd": {
+            "position": {
+              "left": 0,
+              "top": 220
+            },
+            "type": "execute_actions"
+          }
+        }
+      },
+      "revision": 8,
+      "expire_after_minutes": 10080,
+      "metadata": {
+        "revision": 1
+      },
+      "localization": {}
+    }
+  ],
+  "campaigns": [],
+  "triggers": [],
+  "fields": [
+    {
+      "key": "chatbot_name",
+      "name": "chatbot name",
+      "type": "text"
+    }
+  ],
+  "groups": []
+}

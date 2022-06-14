@@ -854,6 +854,27 @@ class TestRapidProABTestCreatorReplaceSplitOperand(unittest.TestCase):
         self.assertEqual(msgs, make_exp('Other'))
 
 
+class TestRapidProABTestCreatorPrependSendMsgActionToSaveValueNode(unittest.TestCase):
+    # def setUp(self):
+    def test_prepend_send_msg_action_to_save_value_node(self):
+        sheet1 = floweditsheet_from_csv("testdata/FlowEdit_PrependSaveValue.csv")
+        self.floweditsheets = [sheet1]
+
+        filename = "testdata/FlowWithSaveValue.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.floweditsheets)
+
+        flows = rpx._data["flows"][0]
+
+        msgs = traverse_flow(flows, Context())
+        self.assertEqual(msgs, [
+                ('send_msg', 'First message'),
+                ('send_msg', 'Prepended text'), 
+                ('set_contact_field', 'Type of Media'),
+                ('send_msg', 'Last message'),
+        ])
+
+
 class TestRapidProABTestCreatorPrependSendMsgAction(unittest.TestCase):
     # def setUp(self):
     def test_wait_for_response(self):
