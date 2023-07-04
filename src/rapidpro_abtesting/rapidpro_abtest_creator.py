@@ -2,11 +2,8 @@ import json
 import copy
 import logging
 from collections import defaultdict
-import node_tools as nt
-from abtest import ABTest, FlowEditSheet
-from uuid_tools import UUIDLookup
-from contact_group import ContactGroup
-import nodes_layout
+from .uuid_tools import UUIDLookup
+from .nodes_layout import normalize_flow_layout
 
 class RapidProABTestCreator(object):
     '''Modifies RapidPro flows to support A/B testing.
@@ -113,7 +110,7 @@ class RapidProABTestCreator(object):
                     edit_ops = edit_ops_by_node[node["uuid"]]
                     apply_editops_to_node(flow, node, edit_ops)
             # Make sure all flow nodes have positive coordinates
-            nodes_layout.normalize_flow_layout(flow)
+            normalize_flow_layout(flow)
 
 
     def apply_abtests(self, floweditsheets):

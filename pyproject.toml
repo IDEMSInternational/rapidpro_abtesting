@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rapidpro-abtesting"
+name = "rapidpro_abtesting"
 version = "0.1.0"
 authors = [
     {name = "IDEMS International", email = "communications@idems.international"},
@@ -30,4 +30,5 @@ classifiers = [
 ]
 dependencies = [
     "google-api-python-client~=2.6.0",
+    "google-auth-oauthlib~=0.4.4",
 ]

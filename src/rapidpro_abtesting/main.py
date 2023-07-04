@@ -1,9 +1,10 @@
-import json
 import argparse
-
-from rapidpro_abtest_creator import RapidProABTestCreator
-from sheets import CSVMasterSheetParser, GoogleMasterSheetParser
+import json
 import logging
+
+from .rapidpro_abtest_creator import RapidProABTestCreator
+from .sheets import CSVMasterSheetParser, GoogleMasterSheetParser
+
 
 def main():
     parser = argparse.ArgumentParser(description='Apply FlowEdits/ABTests to a RapidPro JSON file.')
@@ -32,8 +33,6 @@ def main():
     for flow_edit_sheets in flow_edit_sheet_groups:
         rpx.apply_abtests(flow_edit_sheets)
     rpx.export_to_json(args.output)
-
-
 
 
 if __name__ == '__main__':

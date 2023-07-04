@@ -1,5 +1,5 @@
-from language_chooser import replace_flow_with_language_chooser
-from sheets import load_content_from_csv
+from .language_chooser import replace_flow_with_language_chooser
+from .sheets import load_content_from_csv
 import json
 import logging
 import argparse

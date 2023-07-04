@@ -1,6 +1,5 @@
 import uuid
-import logging
-from contact_group import ContactGroup
+from .contact_group import ContactGroup
 
 def generate_random_uuid():
     return str(uuid.uuid4())

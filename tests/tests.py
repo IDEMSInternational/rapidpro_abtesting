@@ -1,19 +1,29 @@
-import unittest
-import json
-
-import node_tools as nt
-from abtest import SwitchCategory
-from rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
-from testing_tools import Context
-from testing_tools import traverse_flow, find_final_destination
-from sheets import abtest_from_csv, floweditsheet_from_csv, translationeditsheet_from_csv
-from sheets import CSVMasterSheetParser
-from contact_group import ContactGroup
-from uuid_tools import UUIDLookup
-from operations import *
-from nodes_layout import NodesLayout, make_tree_layout
-import logging
 import copy
+import json
+import logging
+import unittest
+
+from rapidpro_abtesting.node_tools import (
+    get_assign_to_group_gadget,
+    get_assign_to_fixed_group_gadget,
+    get_switch_node,
+    get_unique_node_copy,
+)
+from rapidpro_abtesting.abtest import SwitchCategory
+from rapidpro_abtesting.rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
+from testing_tools import traverse_flow, find_final_destination, Context
+from rapidpro_abtesting.sheets import abtest_from_csv, floweditsheet_from_csv, translationeditsheet_from_csv, CSVMasterSheetParser
+from rapidpro_abtesting.contact_group import ContactGroup
+from rapidpro_abtesting.uuid_tools import UUIDLookup
+from rapidpro_abtesting.operations import (
+    FlowEditOp,
+    ReplaceAttachmentsFlowEditOp,
+    ReplaceFlowFlowEditOp,
+    ReplaceQuickReplyFlowEditOp,
+    ReplaceSavedValueFlowEditOp,
+    ReplaceWaitForResponseCasesFlowEditOp,
+)
+from rapidpro_abtesting.nodes_layout import NodesLayout, make_tree_layout
 
 logging.basicConfig(filename='tests.log', level=logging.WARNING, filemode='w')
 
@@ -278,7 +288,7 @@ class TestNodeTools(unittest.TestCase):
         self.floweditsheet.parse_rows(UUIDLookup())
 
     def test_get_unique_node_copy(self):
-        copied = nt.get_unique_node_copy(test_enter_flow_node)
+        copied = get_unique_node_copy(test_enter_flow_node)
         # Ensure all relevant uuids have been replaced
         self.assertNotEqual(copied["uuid"], test_enter_flow_node["uuid"])
         for a1,a2 in zip(copied["actions"], test_enter_flow_node["actions"]):
@@ -304,7 +314,7 @@ class TestNodeTools(unittest.TestCase):
 
     def test_get_group_switch_node(self):
         test_op = self.abtests[0].edit_op(1)
-        switch = nt.get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest2uuid"])
+        switch = get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest2uuid"])
         flow = {"nodes" : [switch]}
         dest1 = find_final_destination(flow, switch, Context([self.abtests[0].groupA().name]))
         dest2 = find_final_destination(flow, switch, Context([self.abtests[0].groupB().name]))
@@ -316,7 +326,7 @@ class TestNodeTools(unittest.TestCase):
 
     def test_get_switch_node(self):
         test_op = self.floweditsheet.edit_op(0)
-        switch = nt.get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest3uuid"])
+        switch = get_switch_node(test_op, ["dest1uuid", "dest2uuid", "dest3uuid"])
         flow = {"nodes" : [switch]}
         dest1 = find_final_destination(flow, switch, Context(variables={"@fields.gender" : "man"}))
         dest2 = find_final_destination(flow, switch, Context(variables={"@fields.gender" : "woman"}))
@@ -329,7 +339,7 @@ class TestNodeTools(unittest.TestCase):
         # print(json.dumps(switch, indent=4))
 
     def test_get_assign_to_group_gadget(self):
-        gadget, gadget_ui = nt.get_assign_to_group_gadget("GAname", "GAuuid", "GBname", "BGuuid", "destuuid")
+        gadget, gadget_ui = get_assign_to_group_gadget("GAname", "GAuuid", "GBname", "BGuuid", "destuuid")
         flow = {"nodes" : gadget}
         context1 = Context(random_choices=[0])
         find_final_destination(flow, gadget[0], context1)
@@ -343,7 +353,7 @@ class TestNodeTools(unittest.TestCase):
 
 
     def test_get_assign_to_fixed_group_gadget(self):
-        gadget, gadget_ui = nt.get_assign_to_fixed_group_gadget("GAname", "GAuuid", "destuuid")
+        gadget, gadget_ui = get_assign_to_fixed_group_gadget("GAname", "GAuuid", "destuuid")
         flow = {"nodes" : gadget}
         context1 = Context(random_choices=[0])
         find_final_destination(flow, gadget[0], context1)
