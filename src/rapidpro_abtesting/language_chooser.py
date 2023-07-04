@@ -1,4 +1,4 @@
-from uuid_tools import generate_random_uuid
+from .uuid_tools import generate_random_uuid
 import logging
 
 

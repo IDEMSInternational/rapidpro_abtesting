@@ -1,10 +1,5 @@
-import json
-import uuid
-import copy
 import re
-from collections import defaultdict
-import node_tools as nt
-
+from rapidpro_abtesting.node_tools import find_node_by_uuid
 
 # TODO: Implement some kind of check that uuids are unique whereever
 # they are supposed to be unique?
@@ -217,7 +212,7 @@ def traverse_flow(flow, context):
         destination_uuid = find_destination_uuid(current_node, context)
         if destination_uuid is None:  # we've reached the exit
             break
-        current_node = nt.find_node_by_uuid(flow, destination_uuid)
+        current_node = find_node_by_uuid(flow, destination_uuid)
         if current_node is None:
             raise ValueError("Destination_uuid {} is invalid.".format(destination_uuid))
     return outputs
@@ -235,6 +230,6 @@ def find_final_destination(flow, node, context):
     while node is not None:
         process_actions(node, context)
         destination_uuid = find_destination_uuid(node, context)
-        node = nt.find_node_by_uuid(flow, destination_uuid)
+        node = find_node_by_uuid(flow, destination_uuid)
     return destination_uuid
 

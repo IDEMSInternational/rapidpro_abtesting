@@ -1,12 +1,19 @@
 # RapidPro A/B Testing
 
-...
-
 Setup:
 
-`pip install -r requirements.txt`
+```
+pip install -e .
+python -m rapidpro_abtesting.main --help
+```
 
-## Notes
+Run tests:
+
+```
+python -u unittest discover -s tests
+```
+
+# Notes
 
 * The row_id from the A/B testing spreadsheets is ignored
 * ui_ output is WIP and expands the nodes more than necessary.

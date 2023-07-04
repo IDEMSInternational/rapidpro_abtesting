@@ -1,10 +1,16 @@
 from abc import ABC, abstractmethod
 import logging
-import node_tools as nt
+from .node_tools import (
+    find_incoming_edges,
+    get_assign_to_fixed_group_gadget,
+    get_assign_to_group_gadget,
+    get_switch_node,
+    get_unique_node_copy,
+)
 import re
 import json
-from nodes_layout import NodesLayout, make_tree_layout
-from uuid_tools import generate_random_uuid
+from .nodes_layout import NodesLayout, make_tree_layout
+from .uuid_tools import generate_random_uuid
 
 class FlowSnippet(object):
     '''A piece of flow with a single entry and exit point.
@@ -273,7 +279,7 @@ class FlowEditOp(GenericEditOp):
 
         uuid = node["uuid"]
         node_is_entrypoint = flow["nodes"][0]["uuid"] == uuid
-        incoming_edges = nt.find_incoming_edges(flow, uuid)
+        incoming_edges = find_incoming_edges(flow, uuid)
 
         flow["nodes"].remove(node)
         nodes_layout = NodesLayout(flow.get("_ui", dict()).get("nodes"))
@@ -433,11 +439,11 @@ class FlowEditOp(GenericEditOp):
         groupB_name = self.categories()[1].condition_arguments[1]
         group_assignment = self._config.get("group_assignment", "random")
         if group_assignment == "always A":
-            gadget, gadget_layout = nt.get_assign_to_fixed_group_gadget(groupA_name, groupA_uuid, node["uuid"])
+            gadget, gadget_layout = get_assign_to_fixed_group_gadget(groupA_name, groupA_uuid, node["uuid"])
         elif group_assignment == "always B":
-            gadget, gadget_layout = nt.get_assign_to_fixed_group_gadget(groupB_name, groupB_uuid, node["uuid"])
+            gadget, gadget_layout = get_assign_to_fixed_group_gadget(groupB_name, groupB_uuid, node["uuid"])
         else:  # group_assignment == "random":
-            gadget, gadget_layout = nt.get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
+            gadget, gadget_layout = get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, node["uuid"])
 
         return gadget, NodesLayout(gadget_layout)
 
@@ -458,7 +464,7 @@ class FlowEditOp(GenericEditOp):
     def _get_variation_tree_snippet(self, input_node, node_layout):
         node_variations = []
         for category in self.categories():
-            node = nt.get_unique_node_copy(input_node)
+            node = get_unique_node_copy(input_node)
             self._replace_content_in_node(node, category.replacement_text)
             node_variations.append(node)
         # Original variation serves as default option
@@ -482,7 +488,7 @@ class FlowEditOp(GenericEditOp):
             full_layout = NodesLayout.from_single_node_layout(input_node["uuid"], node_layout)
         else:
             # Otherwise insert a switch
-            switch_node = nt.get_switch_node(self, destination_uuids)
+            switch_node = get_switch_node(self, destination_uuids)
             first_node = switch_node
             all_nodes = [switch_node] + node_variations
             full_layout = make_tree_layout(self.split_by, switch_node["uuid"], node_variations, node_layout)

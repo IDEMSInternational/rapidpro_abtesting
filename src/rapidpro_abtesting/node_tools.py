@@ -1,9 +1,8 @@
 import json
 import copy
-import logging
 
-from uuid_tools import generate_random_uuid
-from templates import assign_to_random_group_template, assign_to_fixed_group_template
+from .uuid_tools import generate_random_uuid
+from .templates import assign_to_random_group_template, assign_to_fixed_group_template
 
 
 def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, destination_uuid):

@@ -1,9 +1,8 @@
-from contact_group import ContactGroup
+from .contact_group import ContactGroup
 import copy
-from enum import Enum
 import logging
 from abc import ABC, abstractmethod
-from operations import FlowEditOp, TranslationEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
+from .operations import FlowEditOp, TranslationEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
 
 
 class SwitchCategory(object):
