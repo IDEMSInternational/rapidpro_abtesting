@@ -1,8 +1,10 @@
 import os.path
+import json
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from .abtest import ABTest, FlowEditSheet, TranslationEditSheet
 from collections import defaultdict
 import csv
@@ -15,38 +17,8 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 
 def load_google_spreadsheet(spreadsheet_id):
-    """Load spreadsheet from Google Drive.
-
-    Args:
-        spreadsheet_id: You can extract it from the spreadsheed URL, like this
-        https://docs.google.com/spreadsheets/d/[spreadsheet_id]/edit
-
-    Returns:
-        Object as specified here:
-        https://developers.google.com/resources/api-libraries/documentation/sheets/v4/python/latest/sheets_v4.spreadsheets.values.html#batchGet
-    """
-
-    # Authentication code nabbed from
-    # https://developers.google.com/sheets/api/quickstart/python
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # TODO: Provide instructions how to obtain this file and get access
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    service = build('sheets', 'v4', credentials=creds)
+    
+    service = build('sheets', 'v4', credentials=get_credentials())
 
     # Call the Sheets API
     sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
@@ -240,3 +212,37 @@ def translationeditsheet_from_csv(filename):
     content = load_content_from_csv(filename)
     name = os.path.splitext(os.path.basename(filename))[0]
     return TranslationEditSheet(name, content)
+
+def get_credentials():
+    sa_creds = os.getenv("CREDENTIALS")
+    if sa_creds:
+        return ServiceAccountCredentials.from_service_account_info(
+            json.loads(sa_creds),
+            scopes=SCOPES
+        )
+    
+    creds = None
+    token_file_name = "token.json"
+
+    if os.path.exists(token_file_name):
+        creds = Credentials.from_authorized_user_file(
+            token_file_name,
+            scopes=SCOPES
+        )
+
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json',
+                SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+
+        # Save the credentials for the next run
+        with open(token_file_name, 'w') as token:
+            token.write(creds.to_json())
+
+    return creds
