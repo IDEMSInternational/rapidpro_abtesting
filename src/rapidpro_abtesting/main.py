@@ -78,9 +78,15 @@ def apply_abtests(
 
     flow_edit_sheet_groups = sheet_parser.get_flow_edit_sheet_groups(config)
     rpx = RapidProABTestCreator(input_flow)
-    for flow_edit_sheets in flow_edit_sheet_groups:
-        rpx.apply_abtests(flow_edit_sheets)
-    rpx.export_to_json(output_flow)
+    try:
+        for flow_edit_sheets in flow_edit_sheet_groups:
+            rpx.apply_abtests(flow_edit_sheets)
+        rpx.export_to_json(output_flow)
+    finally:
+        # Close the log file explicitly
+        if logfile:
+            for handler in logging.root.handlers[:]:  # Close all existing log file handlers
+                logging.root.removeHandler(handler)
 
 
 if __name__ == "__main__":
