@@ -159,11 +159,12 @@ class FlowEditSheet(FlowSheet):
         if op_type is None:
             return None
 
-        if len(row) < len(self.FIXED_COLS) + len(self.CATEGORY_PREFIXES) * len(self._category_names):
-            logging.warning(debug_string + 'too few entries.')
-            return None
+        expected_col_count = (
+            len(self.FIXED_COLS) +
+            len(self.CATEGORY_PREFIXES) * len(self._category_names)
+        )
+        row_new = pad(copy.copy(row), expected_col_count)
 
-        row_new = copy.copy(row)
         self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
@@ -257,8 +258,8 @@ class ABTest(FlowSheet):
             assign_to_group = False
 
         row_new = copy.copy(row)
-        if len(row_new) < 6:  # pad to full length
-            row_new += [""] * (6 - len(row_new))
+        if len(row_new) < 6:
+            row_new = pad(row_new, 6)
         self._convert_row_id_to_int(row_new)
 
         edit_op = FlowEditOp.create_edit_op(
@@ -327,11 +328,7 @@ class TranslationEditSheet(FlowSheet):
         if op_type is None:
             return None
 
-        if len(row) < len(self.FIXED_COLS):
-            logging.warning(debug_string + 'too few entries.')
-            return None
-
-        row_new = copy.copy(row)
+        row_new = pad(copy.copy(row), len(self.FIXED_COLS))
         self._convert_row_id_to_int(row_new)
 
         # Unpack the row entries to create edit op
@@ -342,3 +339,7 @@ class TranslationEditSheet(FlowSheet):
             config=self._config,
         )
         return edit_op
+
+
+def pad(row, n):
+    return row + [''] * (n - len(row))
