@@ -381,7 +381,11 @@ class TestOperations(unittest.TestCase):
         edit_op = self.abtests[1].edit_op(0)
         flow_snippet = edit_op._get_flow_snippet(self.test_node_x)
         self.assertEqual(len(flow_snippet.node_variations()), 2)
-        self.assertEqual(flow_snippet.node_variations()[0], self.test_node_x)  # First node should be original
+        self.assertEqual(
+            flow_snippet.node_variations()[0],
+            self.test_node_x,
+            "First node should be original"
+        )
 
         # Turn snippet into complete flow and simulate it.
         flow = {"nodes" : flow_snippet.nodes()}
