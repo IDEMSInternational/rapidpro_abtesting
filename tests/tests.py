@@ -17,6 +17,7 @@ from rapidpro_abtesting.contact_group import ContactGroup
 from rapidpro_abtesting.uuid_tools import UUIDLookup
 from rapidpro_abtesting.operations import (
     FlowEditOp,
+    RemoveAttachmentsFlowEditOp,
     ReplaceAttachmentsFlowEditOp,
     ReplaceFlowFlowEditOp,
     ReplaceQuickReplyFlowEditOp,
@@ -443,6 +444,20 @@ class TestOperations(unittest.TestCase):
             "image:@(fields.image_path & \"mother_and_baby.jpg\")",
             "image:https://i.imgur.com/TQZFqMq.jpeg",
             "audio:@(fields.voiceover_audio_path & \"Happy.mp3\")",
+        ]
+        self.assertEqual(attachments, attachments_exp)
+
+    def test_apply_remove_attachments(self):
+        orig_str = "image:@(fields.image_path & \"parent_and_baby.jpg\");\"Crying.mp3\""
+        row = ['remove_attachments', '', 0, 'Good morning!', orig_str, '', '']
+        edit_op = FlowEditOp.create_edit_op(*row, "debug_str")
+        self.assertEqual(type(edit_op), RemoveAttachmentsFlowEditOp)
+        input_node = copy.deepcopy(test_node)
+        flow_snippet = edit_op._get_flow_snippet(input_node)
+        self.assertEqual(len(flow_snippet.node_variations()), 1)
+        attachments = flow_snippet.node_variations()[0]["actions"][0]["attachments"]
+        attachments_exp = [
+            "image:https://i.imgur.com/TQZFqMq.jpeg",
         ]
         self.assertEqual(attachments, attachments_exp)
 
