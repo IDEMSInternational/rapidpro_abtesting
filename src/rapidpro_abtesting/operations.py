@@ -397,11 +397,43 @@ class FlowEditOp(GenericEditOp):
             if total_occurrences >= 2:
                 logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
 
+    def _remove_in_action_list_field(self, node, action_field):
+        '''Modifies the input node by removing the content of a list-field
+        (whose name is specified in action_field) in an action of a send_msg node.
+        '''
+
+        remove_indices = []
+        for bit_of_text in self._bit_of_text.split(';'):
+            for action in node["actions"]:
+                if action["type"] == "send_msg":
+                    for i, text in enumerate(action[action_field]):
+                        if text.find(bit_of_text) >= 0:
+                            remove_indices.append(i)
+        if len(remove_indices) == 0:
+            logging.warning(
+                self.debug_string() +
+                'No occurrences of "{}" found node.'.format(bit_of_text)
+            )
+        if len(remove_indices) >= 2:
+            logging.warning(
+                self.debug_string() +
+                'Multiple occurrences of "{}" found in node.'.format(bit_of_text)
+            )
+        # remove matching entries
+        action[action_field] = [
+                elem
+                for i, elem in enumerate(action[action_field])
+                if i not in remove_indices
+        ]
+
     def _replace_text_in_quick_replies(self, node, replacement_text):
         self._replace_in_action_list_field(node, replacement_text, "quick_replies")
 
     def _replace_attachments(self, node, replacement_text):
         self._replace_in_action_list_field(node, replacement_text, "attachments")
+
+    def _remove_attachments(self, node):
+        self._remove_in_action_list_field(node, "attachments")
 
     def _replace_wait_for_response_cases(self, node, replacement_text):
         '''Modifies the input node by replacing the content of a list-field
@@ -580,6 +612,21 @@ class ReplaceAttachmentsFlowEditOp(FlowEditOp):
         return self._get_variation_tree_snippet(node, node_layout)
 
 
+class RemoveAttachmentsFlowEditOp(FlowEditOp):
+
+    def needs_parameter():
+        return False
+
+    def is_match_for_node(self, node):
+        return self._matches_message_text(node)
+
+    def _replace_content_in_node(self, node, text):
+        self._remove_attachments(node)
+
+    def _get_flow_snippet(self, node, node_layout=None):
+        return self._get_variation_tree_snippet(node, node_layout)
+
+
 class ReplaceFlowFlowEditOp(FlowEditOp):
 
     def _process_uuid_lookup(self, uuid_lookup):
@@ -678,6 +725,7 @@ FLOWEDIT_OPERATION_TYPES = {
     "replace_bit_of_text" : ReplaceBitOfTextFlowEditOp,
     "replace_quick_replies" : ReplaceQuickReplyFlowEditOp,
     "replace_attachments" : ReplaceAttachmentsFlowEditOp,
+    "remove_attachments" : RemoveAttachmentsFlowEditOp,
     "replace_saved_value" : ReplaceSavedValueFlowEditOp,
     "assign_to_group_before_msg_node" : AssignToGroupBeforeMsgNodeFlowEditOp,
     "assign_to_group_before_save_value_node" : AssignToGroupBeforeSaveValueNodeFlowEditOp,
