@@ -29,10 +29,11 @@ class FlowSnippet(object):
             as destination is redirected to root_uuid
     '''
 
-    def __init__(self, nodes, nodes_layout, node_variations, root_uuid=-1):
+    def __init__(self, nodes, nodes_layout, node_variations, original_node, root_uuid=-1):
         self._nodes = nodes
         self._nodes_layout = nodes_layout
         self._node_variations = node_variations
+        self._original_node = original_node
         if root_uuid == -1:
             self._root_uuid = nodes[0]["uuid"]
         else:
@@ -46,6 +47,11 @@ class FlowSnippet(object):
 
     def node_variations(self):
         return self._node_variations
+
+    def original_node(self):
+        # This is not used in the generation of the output flow.
+        # It is used to look up translations.
+        return self._original_node
 
     def root_uuid(self):
         return self._root_uuid
@@ -304,16 +310,21 @@ class FlowEditOp(GenericEditOp):
         
         # Copy over translations of the original node elements to all its variations
         localization = flow.get("localization", {})
+        # Get translatable elements of the original node and the variations
+        orig_localizables = get_localizable_uuids(snippet.original_node())
         variations_localizables = []
         for node in snippet.node_variations():
             variations_localizables.append(get_localizable_uuids(node))
-        orig_localizables = variations_localizables[0]
         for language, translations in localization.items():
+            # For each language and translatable element of the original node,
+            # check if that element has a translation.
             for uuid, path in orig_localizables.items():
                 if uuid in translations:
-                    for localizables in variations_localizables[1:]:
+                    # We found a translation for some element of the original node
+                    for localizables in variations_localizables:
                         for uuid2, path2 in localizables.items():
-                            if path2 == path:
+                            if path2 == path and uuid2 != uuid:
+                                # This element exists in a variation node
                                 translations[uuid2] = copy.deepcopy(translations[uuid])
 
         return snippet.node_variations()
@@ -504,10 +515,10 @@ class FlowEditOp(GenericEditOp):
             gadget_layout.insert_after(node["uuid"], node_layout)
         else:
             gadget_layout = NodesLayout()
-        return FlowSnippet(all_nodes, gadget_layout, [node], gadget[0]["uuid"])
+        return FlowSnippet(all_nodes, gadget_layout, [node], node, gadget[0]["uuid"])
 
     def _get_noop_snippet(self, node, node_layout):
-        return FlowSnippet([node], node_layout, [node], node["uuid"])
+        return FlowSnippet([node], node_layout, [node], node, node["uuid"])
 
     def _get_variation_tree_snippet(self, input_node, node_layout):
         node_variations = []
@@ -549,7 +560,7 @@ class FlowEditOp(GenericEditOp):
                 gadget_layout.merge(full_layout)
                 full_layout = gadget_layout
 
-        return FlowSnippet(all_nodes, full_layout, node_variations, first_node["uuid"])
+        return FlowSnippet(all_nodes, full_layout, node_variations, input_node, first_node["uuid"])
 
 
 class ReplaceSavedValueFlowEditOp(FlowEditOp):

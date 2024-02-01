@@ -1,0 +1,2 @@
+"type_of_edit","flow_id","original_row_id","node_identifier","change","condition_var","category","category:B","condition:B","condition_type:B","category:C","condition:C","condition_type:C"
+"replace_bit_of_text","ABTesting_Pre",2,"Some generic message.","message","@fields.variant","variant A","variant B","B","has_any_word","variant C","C","has_any_word"

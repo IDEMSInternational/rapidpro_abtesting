@@ -1466,5 +1466,36 @@ class TestTranslationCopying(unittest.TestCase):
         }
         self.assertEqual(localizables1, localizables1_exp)
 
+    def test_basic_edits(self):
+        sheet1 = floweditsheet_from_csv("testdata/FlowEdit_TranslatedMessage.csv")
+        floweditsheets = [sheet1]
+        filename = "testdata/Linear_OneNodePerAction.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_editsheets(floweditsheets)
+        flow = rpx._data["flows"][0]
+        nodes = flow["nodes"]
+        localization = flow["localization"]
+
+        # Find the nodes where we insert a branch based on group
+        for node in nodes:
+            if "router" in node:
+                switch_node = node
+                break
+
+        # Check variations of the send_message action (first branch)
+        branch_uuids = [exit["destination_uuid"] for exit in switch_node["exits"]]
+        self.assertEqual(len(branch_uuids), 3)
+        branch_nodes = []
+        for branch_uuid in branch_uuids:
+            branch_nodes.append(find_node_by_uuid(flow, branch_uuid))
+        uuid0 = branch_nodes[0]["actions"][0]["uuid"]
+        uuid1 = branch_nodes[1]["actions"][0]["uuid"]
+        uuid2 = branch_nodes[2]["actions"][0]["uuid"]
+        for language, translations in localization.items():
+            self.assertIn(uuid1, translations)
+            self.assertIn(uuid2, translations)
+            self.assertEqual(translations[uuid0], translations[uuid1])
+            self.assertEqual(translations[uuid0], translations[uuid2])
+
 if __name__ == '__main__':
     unittest.main()
