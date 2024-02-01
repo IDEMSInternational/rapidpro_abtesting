@@ -213,3 +213,18 @@ def find_incoming_edges(flow, uuid):
             if exit.get("destination_uuid", None) == uuid:
                 exits.append(exit)
     return exits
+
+
+def get_localizable_uuids(node):
+    # Returns UUIDs of node elements the can potentially be translated
+    localizable_uuids = {}
+    if "router" in node and "cases" in node["router"]:
+        for i, case in enumerate(node["router"]["cases"]):
+            localizable_uuids[case["uuid"]] = ["router", "cases", i]
+    if "router" in node and "categories" in node["router"]:
+        for i, category in enumerate(node["router"]["categories"]):
+            localizable_uuids[category["uuid"]] = ["router", "categories", i]
+    if "actions" in node:
+        for i, action in enumerate(node["actions"]):
+            localizable_uuids[action["uuid"]] = ["actions", i]
+    return localizable_uuids

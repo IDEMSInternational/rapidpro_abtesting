@@ -4,8 +4,10 @@ import logging
 import unittest
 
 from rapidpro_abtesting.node_tools import (
+    find_node_by_uuid,
     get_assign_to_group_gadget,
     get_assign_to_fixed_group_gadget,
+    get_localizable_uuids,
     get_switch_node,
     get_unique_node_copy,
 )
@@ -822,16 +824,57 @@ class TestRapidProABTestCreatorTwoFlowsWithMatchingNode(unittest.TestCase):
 
 
 class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
-    # def setUp(self):
-    def test_wait_for_response(self):
+    def setUp(self):
         abtest1 = abtest_from_csv("testdata/Test_WaitForResponse.csv")
         self.abtests = [abtest1]
         filename = "testdata/WaitForResponse.json"
-        rpx = RapidProABTestCreator(filename)
-        rpx.apply_abtests(self.abtests)
-        make_exp = lambda s: [('send_msg', 'Hello. Choose an option.'), ('send_msg', s)]
+        self.rpx = RapidProABTestCreator(filename)
+        self.rpx.apply_abtests(self.abtests)
 
-        flows = rpx._data["flows"][0]
+    def test_wait_for_response_translations(self):
+        flow = self.rpx._data["flows"][0]
+        nodes = flow["nodes"]
+        localization = flow["localization"]
+
+        # Find the nodes where we insert a branch based on group
+        abtest_nodes = []
+        for node in nodes:
+            if "router" in node and node["router"]["cases"][0]["type"] == "has_group":
+                abtest_nodes.append(node)
+
+        # Check variations of the send_message action (first branch)
+        branch_uuids = [exit["destination_uuid"] for exit in abtest_nodes[0]["exits"]]
+        self.assertEqual(len(branch_uuids), 3)
+        self.assertEqual(branch_uuids[0], branch_uuids[2])
+        branch_nodes = []
+        for branch_uuid in branch_uuids[:2]:
+            branch_nodes.append(find_node_by_uuid(flow, branch_uuid))
+        uuid0 = branch_nodes[0]["actions"][0]["uuid"]
+        uuid1 = branch_nodes[1]["actions"][0]["uuid"]
+        for language, translations in localization.items():
+            self.assertIn(uuid1, translations)
+            self.assertEqual(translations[uuid0], translations[uuid1])
+
+        # Check variations of the wait_for_response (second branch)
+        branch_uuids = [exit["destination_uuid"] for exit in abtest_nodes[1]["exits"]]
+        self.assertEqual(len(branch_uuids), 3)
+        self.assertEqual(branch_uuids[0], branch_uuids[2])
+        branch_nodes = []
+        for branch_uuid in branch_uuids[:2]:
+            branch_nodes.append(find_node_by_uuid(flow, branch_uuid))
+        for elem in ["cases", "categories"]:
+            catcases = branch_nodes[0]["router"][elem]
+            for i in range(len(catcases)):
+                uuid0 = branch_nodes[0]["router"][elem][i]["uuid"]
+                uuid1 = branch_nodes[1]["router"][elem][i]["uuid"]
+                for language, translations in localization.items():
+                    if uuid0 in translations:
+                            self.assertIn(uuid1, translations)
+                            self.assertEqual(translations[uuid0], translations[uuid1])
+
+    def test_wait_for_response_functionality(self):
+        make_exp = lambda s: [('send_msg', 'Hello. Choose an option.'), ('send_msg', s)]
+        flows = self.rpx._data["flows"][0]
         groupsA = [self.abtests[0].groupA().name]
         groupsB = [self.abtests[0].groupB().name]
 
@@ -1397,10 +1440,31 @@ class TestTranslationEdits(unittest.TestCase):
         self.assertEqual(flow["localization"]["aar"]["7d3a7c7b-218a-44a8-a5fc-a80062dceacd"]["arguments"][0], "yappp")
         self.assertEqual(flow["localization"]["aar"]["ead5c97e-f960-406f-a87f-ac603b70c838"]["name"][0], "Nohoho")
         self.assertEqual(flow["localization"]["aar"]["199562fb-77f0-4c06-99d2-38de6efff8e0"]["name"][0], "forty - 60")
-        # Expected warnings:
-        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: No category name for tranlsation "{'arguments': ['yappp']}".
-        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: No case arguments provided for tranlsation "{'category_name': 'Nohoho'}".
-        # WARNING:root:TranslationEditSheet Test_TranslationEdits row 5: Translation of case "97a19bb7-a6a4-41c9-bf0f-c0e490ab28d1" does not exist.
+
+
+class TestTranslationCopying(unittest.TestCase):
+    # def setUp(self):
+    def test_get_localizable_uuids(self):
+        filename = "testdata/WaitForResponse.json"
+        with open(filename) as fp:
+            data = json.load(fp)
+        nodes = data["flows"][0]["nodes"]
+
+        localizables0 = get_localizable_uuids(nodes[0])
+        localizables0_exp = {"cee54fd0-a432-4bf6-b42a-2561627eb3b8" : ["actions", 0]}
+        self.assertEqual(localizables0, localizables0_exp)
+
+        localizables1 = get_localizable_uuids(nodes[1])
+        localizables1_exp = {
+            "7d3a7c7b-218a-44a8-a5fc-a80062dceacd" : ["router", "cases", 0],
+            "9643921e-f05c-47f3-8165-8645b5a67e92" : ["router", "cases", 1],
+            "97a19bb7-a6a4-41c9-bf0f-c0e490ab28d1" : ["router", "cases", 2],
+            "d243928c-6d2c-4349-b6ff-23cfbce05c92" : ["router", "categories", 0],
+            "199562fb-77f0-4c06-99d2-38de6efff8e0" : ["router", "categories", 1],
+            "ead5c97e-f960-406f-a87f-ac603b70c838" : ["router", "categories", 2],
+            "177bcbae-6286-461a-a4ff-55c5fecd850a" : ["router", "categories", 3],
+        }
+        self.assertEqual(localizables1, localizables1_exp)
 
 if __name__ == '__main__':
     unittest.main()

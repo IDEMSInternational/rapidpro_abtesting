@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
 import logging
+import re
+import json
+import copy
 from .node_tools import (
     find_incoming_edges,
     get_assign_to_fixed_group_gadget,
     get_assign_to_group_gadget,
+    get_localizable_uuids,
     get_switch_node,
     get_unique_node_copy,
 )
-import re
-import json
 from .nodes_layout import NodesLayout, make_tree_layout
 from .uuid_tools import generate_random_uuid
 
@@ -300,6 +302,20 @@ class FlowEditOp(GenericEditOp):
         for edge in incoming_edges:
             edge["destination_uuid"] = snippet.root_uuid()
         
+        # Copy over translations of the original node elements to all its variations
+        localization = flow.get("localization", {})
+        variations_localizables = []
+        for node in snippet.node_variations():
+            variations_localizables.append(get_localizable_uuids(node))
+        orig_localizables = variations_localizables[0]
+        for language, translations in localization.items():
+            for uuid, path in orig_localizables.items():
+                if uuid in translations:
+                    for localizables in variations_localizables[1:]:
+                        for uuid2, path2 in localizables.items():
+                            if path2 == path:
+                                translations[uuid2] = copy.deepcopy(translations[uuid])
+
         return snippet.node_variations()
 
     def split_by(self):
