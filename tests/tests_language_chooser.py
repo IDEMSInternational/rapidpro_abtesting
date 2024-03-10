@@ -3,7 +3,7 @@ import unittest
 
 from rapidpro_abtesting.language_chooser import replace_flow_with_language_chooser
 from rapidpro_abtesting.sheets import load_content_from_csv
-from testing_tools import Context, traverse_flow
+from .testing_tools import Context, traverse_flow
 
 
 logging.basicConfig(filename='tests.log', level=logging.WARNING, filemode='w')

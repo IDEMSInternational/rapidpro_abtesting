@@ -10,7 +10,7 @@ python -m rapidpro_abtesting.main --help
 Run tests:
 
 ```
-python -u unittest discover -s tests
+python -m unittest
 ```
 
 # Notes

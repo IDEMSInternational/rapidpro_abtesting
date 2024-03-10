@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         "--format",
         required=True,
-        choices=["csv", "google_sheets"],
+        choices=["csv", "google_sheets", "json"],
         help="Format of the master sheet.",
     )
     parser.add_argument(
@@ -73,6 +73,8 @@ def apply_abtests(
 
     if format == "csv":
         sheet_parser = CSVMasterSheetParser(main_sheets)
+    elif format == "json":
+        sheet_parser = JSONMasterSheetParser(main_sheets)
     else:
         sheet_parser = GoogleMasterSheetParser(main_sheets)
 
@@ -85,7 +87,8 @@ def apply_abtests(
     finally:
         # Close the log file explicitly
         if logfile:
-            for handler in logging.root.handlers[:]:  # Close all existing log file handlers
+            # Close all existing log file handlers
+            for handler in logging.root.handlers[:]:  
                 logging.root.removeHandler(handler)
 
 
