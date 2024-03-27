@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "version": "0.1.0"
+  },
+  "sheets": {
+    "FlowEdit1_Gender": [
+      {
+        "type_of_edit": "replace_bit_of_text",
+        "flow_id": "ABTesting_Pre",
+        "original_row_id": "3",
+        "node_identifier": "Good morning!",
+        "change": "Good morning!",
+        "condition_var": "@fields.gender",
+        "category": "Good morning, my person!",
+        "category:man": "Good morning, my dude!",
+        "condition:man": "man",
+        "condition_type:man": "has_any_word",
+        "category:woman": "Good morning, my gal!",
+        "condition:woman": "woman",
+        "condition_type:woman": "has_any_word"
+      },
+      {
+        "type_of_edit": "replace_bit_of_text",
+        "flow_id": "ABTesting_Pre",
+        "original_row_id": "1",
+        "node_identifier": "The first personalizable message.",
+        "change": "personalizable message.",
+        "condition_var": "@fields.gender",
+        "category": "personalizable message, my person!",
+        "category:man": "personalizable message, my dude!",
+        "condition:man": "man",
+        "condition_type:man": "has_any_word",
+        "category:woman": "personalizable message, my gal!",
+        "condition:woman": "woman",
+        "condition_type:woman": "has_any_word"
+      }
+    ],
+    "==content==": [
+      {
+        "flow_type": "flow_create",
+        "flow_name": "PLH - Survey - Behave - Tips for difficult behaviours",
+        "sheet_name": "PLH-Survey-Behave-Tips_for_d",
+        "status": "released"
+      },
+      {
+        "flow_type": "flow_editing",
+        "flow_name": "",
+        "sheet_name": "FlowEdit1_Gender",
+        "status": "released"
+      },
+      {
+        "flow_type": "flow_testing",
+        "flow_name": "",
+        "sheet_name": "Test2_Some1337",
+        "status": "released"
+      },
+      {
+        "flow_type": "translation_editing",
+        "flow_name": "",
+        "sheet_name": "TranslationEdit1",
+        "status": "released"
+      }
+    ],
+    "Test2_Some1337": [
+      {
+        "type_of_edit": "replace_bit_of_text",
+        "flow_id": "ABTesting_Pre",
+        "original_row_id": "3",
+        "node_identifier": "Good morning!",
+        "change": "Good morning",
+        "change:1337": "g00d m0rn1ng",
+        "assign_to_group": "FALSE"
+      }
+    ],
+    "TranslationEdit1": [
+      {
+        "type_of_edit" : "replace_bit_of_text",
+        "flow_id" : "ABTesting_Pre",
+        "original_row_id" : "0",
+        "node_identifier" : "Some generic message.",
+        "original" : "French",
+        "language" : "fra",
+        "replacement" : "Togolese"
+      }
+    ]
+  }
+}

@@ -13,30 +13,51 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 
 def load_google_spreadsheet(spreadsheet_id):
-    
-    service = build('sheets', 'v4', credentials=get_credentials())
+    service = build("sheets", "v4", credentials=get_credentials())
 
     # Call the Sheets API
     sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    sheets = sheet_metadata.get('sheets', '')
+    sheets = sheet_metadata.get("sheets", "")
     titles = []
     for sheet in sheets:
         title = sheet.get("properties", {}).get("title", "Sheet1")
         titles.append(title)
 
-    result = service.spreadsheets().values().batchGet(
-            spreadsheetId=spreadsheet_id, ranges=titles).execute()
+    result = (
+        service.spreadsheets()
+        .values()
+        .batchGet(spreadsheetId=spreadsheet_id, ranges=titles)
+        .execute()
+    )
     return result
 
 
 def load_content_from_csv(filename):
-    with open(filename, newline='') as f:
+    with open(filename, newline="") as f:
         reader = csv.reader(f)
         return list(reader)
+
+
+def load_content_from_json(filename):
+    tables = {}
+    with open(filename, newline="") as f:
+        data = json.load(f)
+    for name, content in data["sheets"].items():
+        headers = list(content[0].keys())
+        headerlen = len(headers)
+        headermap = {header: i for i, header in enumerate(headers)}
+        table = [headers]
+        for row in content:
+            new_row = [""] * headerlen
+            for header, entry in row.items():
+                new_row[headermap[header]] = entry
+            table.append(new_row)
+        tables[name] = table
+    return tables
 
 
 class MasterSheetParser(ABC):
@@ -65,7 +86,7 @@ class MasterSheetParser(ABC):
             return []
         flow_operation_dict = defaultdict(list)
         for i, row in enumerate(self._master_content[1:]):
-            debug_string = "Master sheet " + self._name + " row " + str(i+2) + ": "
+            debug_string = "Master sheet " + self._name + " row " + str(i + 2) + ": "
             result = self._parse_row(row, debug_string, config)
             if result is not None:
                 operation, order = result
@@ -80,8 +101,10 @@ class MasterSheetParser(ABC):
         pass
 
     def _is_valid_master_header(self, row):
-        if row[:type(self)._N_COLUMNS] == type(self)._MASTER_HEADER:
-            for entry,expected in zip(row[type(self)._N_COLUMNS:], type(self)._MASTER_HEADER_OPTIONAL):
+        if row[: type(self)._N_COLUMNS] == type(self)._MASTER_HEADER:
+            for entry, expected in zip(
+                row[type(self)._N_COLUMNS :], type(self)._MASTER_HEADER_OPTIONAL
+            ):
                 if entry != expected:
                     return False
             return True
@@ -102,7 +125,9 @@ class MasterSheetParser(ABC):
                 order = row[type(self)._ORDER]
                 order = int(order)
             except ValueError:
-                logging.warning(debug_string + "invalid order: " + order + ". Assuming 0.")
+                logging.warning(
+                    debug_string + "invalid order: " + order + ". Assuming 0."
+                )
                 order = 0
         else:
             order = 0
@@ -115,10 +140,16 @@ class MasterSheetParser(ABC):
             return ABTest(sheet_name, content, config.get(sheet_name, None)), order
         elif operation_type == "flow_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return FlowEditSheet(sheet_name, content, config.get(sheet_name, None)), order
+            return (
+                FlowEditSheet(sheet_name, content, config.get(sheet_name, None)),
+                order,
+            )
         elif operation_type == "translation_editing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
-            return TranslationEditSheet(sheet_name, content, config.get(sheet_name, None)), order
+            return (
+                TranslationEditSheet(sheet_name, content, config.get(sheet_name, None)),
+                order,
+            )
         else:
             logging.warning(debug_string + "invalid operation_type: " + operation_type)
 
@@ -127,7 +158,9 @@ class MasterSheetParser(ABC):
             self._master_content = content
         else:
             if self._master_content[0] != content[0]:
-                logging.warning(f"Warning: In compatible master header rows: {self._master_content[0]} differs from {content[0]}.")
+                logging.warning(
+                    f"Warning: In compatible master header rows: {self._master_content[0]} differs from {content[0]}."
+                )
             self._master_content += content[1:]
 
 
@@ -139,18 +172,20 @@ class GoogleMasterSheetParser(MasterSheetParser):
         for spreadsheet_id in spreadsheet_ids:
             self._add_master_sheet(spreadsheet_id)
         if not self._master_content:
-            logging.warning("No master sheet with title " + type(self).MASTER_SHEET_NAME + " found.")
+            logging.warning(
+                "No master sheet with title " + type(self).MASTER_SHEET_NAME + " found."
+            )
         self._name = self._name[:-1]
 
     def _add_master_sheet(self, spreadsheet_id):
-        self._name += spreadsheet_id + '|'
+        self._name += spreadsheet_id + "|"
         result = load_google_spreadsheet(spreadsheet_id)
 
-        for sheet in result.get('valueRanges', []):
-            name = sheet.get('range', '').split('!')[0]
+        for sheet in result.get("valueRanges", []):
+            name = sheet.get("range", "").split("!")[0]
             if name.startswith("'") and name.endswith("'"):
                 name = name[1:-1]
-            content = sheet.get('values', [])
+            content = sheet.get("values", [])
             if name == type(self).MASTER_SHEET_NAME:
                 self._add_to_master_content(content)
             elif name in self._sheets:
@@ -166,7 +201,6 @@ class GoogleMasterSheetParser(MasterSheetParser):
 
 
 class CSVMasterSheetParser(MasterSheetParser):
-
     def __init__(self, filenames):
         super().__init__()
         self._path = None
@@ -180,10 +214,12 @@ class CSVMasterSheetParser(MasterSheetParser):
         if not self._path:
             self._path = path
         elif path != self._path:
-            logging.error(f"Error: Master sheets {self._name} and {name} must be in the same directory. Skipping {name}.")
+            logging.error(
+                f"Error: Master sheets {self._name} and {name} must be in the same directory. Skipping {name}."
+            )
             return
 
-        self._name += name + '|'
+        self._name += name + "|"
         content = load_content_from_csv(filename)
         self._add_to_master_content(content)
 
@@ -193,6 +229,38 @@ class CSVMasterSheetParser(MasterSheetParser):
             logging.warning(debug_string + filename + " does not exist.")
             return None
         return load_content_from_csv(filename)
+
+
+class JSONMasterSheetParser(MasterSheetParser):
+    MASTER_SHEET_NAME = "==content=="
+
+    def __init__(self, filenames):
+        super().__init__()
+        self._path = None
+        for filename in filenames:
+            self._add_master_sheet(filename)
+        if not self._master_content:
+            logging.warning(
+                "No master sheet with title " + type(self).MASTER_SHEET_NAME + " found."
+            )
+        self._name = self._name[:-1]
+
+    def _add_master_sheet(self, filename):
+        self._name += filename + "|"
+        tables = load_content_from_json(filename)
+        for name, content in tables.items():
+            if name == type(self).MASTER_SHEET_NAME:
+                self._add_to_master_content(content)
+            elif name in self._sheets:
+                logging.warning("Warning: Duplicate sheet name: " + name)
+            else:
+                self._sheets[name] = content
+
+    def _get_content_from_sheet_name(self, name, debug_string):
+        if not name in self._sheets:
+            logging.warning(debug_string + name + " does not exist.")
+            return None
+        return self._sheets[name]
 
 
 # Helper functions for tests cases
@@ -213,36 +281,30 @@ def translationeditsheet_from_csv(filename):
     name = os.path.splitext(os.path.basename(filename))[0]
     return TranslationEditSheet(name, content)
 
+
 def get_credentials():
     sa_creds = os.getenv("CREDENTIALS")
     if sa_creds:
         return ServiceAccountCredentials.from_service_account_info(
-            json.loads(sa_creds),
-            scopes=SCOPES
+            json.loads(sa_creds), scopes=SCOPES
         )
-    
+
     creds = None
     token_file_name = "token.json"
 
     if os.path.exists(token_file_name):
-        creds = Credentials.from_authorized_user_file(
-            token_file_name,
-            scopes=SCOPES
-        )
+        creds = Credentials.from_authorized_user_file(token_file_name, scopes=SCOPES)
 
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json',
-                SCOPES
-            )
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
 
         # Save the credentials for the next run
-        with open(token_file_name, 'w') as token:
+        with open(token_file_name, "w") as token:
             token.write(creds.to_json())
 
     return creds

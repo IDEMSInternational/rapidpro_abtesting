@@ -13,8 +13,8 @@ from rapidpro_abtesting.node_tools import (
 )
 from rapidpro_abtesting.abtest import SwitchCategory
 from rapidpro_abtesting.rapidpro_abtest_creator import RapidProABTestCreator, apply_editops_to_node
-from testing_tools import traverse_flow, find_final_destination, Context
-from rapidpro_abtesting.sheets import abtest_from_csv, floweditsheet_from_csv, translationeditsheet_from_csv, CSVMasterSheetParser
+from .testing_tools import traverse_flow, find_final_destination, Context
+from rapidpro_abtesting.sheets import abtest_from_csv, floweditsheet_from_csv, translationeditsheet_from_csv, CSVMasterSheetParser, JSONMasterSheetParser
 from rapidpro_abtesting.contact_group import ContactGroup
 from rapidpro_abtesting.uuid_tools import UUIDLookup
 from rapidpro_abtesting.operations import (
@@ -1163,6 +1163,11 @@ class TestMasterSheet(unittest.TestCase):
 
     def test_split_master_sheet(self):
         parser = CSVMasterSheetParser(["testdata/master_sheet_part1.csv", "testdata/master_sheet_part2.csv"])
+        self.floweditsheets, = parser.get_flow_edit_sheet_groups()
+        self.test_apply_abtests_linear_onenodeperaction()
+
+    def test_json_master_sheet(self):
+        parser = JSONMasterSheetParser(["testdata/master_sheet.json"])
         self.floweditsheets, = parser.get_flow_edit_sheet_groups()
         self.test_apply_abtests_linear_onenodeperaction()
 
