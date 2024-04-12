@@ -3,7 +3,7 @@ import json
 import logging
 
 from .rapidpro_abtest_creator import RapidProABTestCreator
-from .sheets import CSVMasterSheetParser, GoogleMasterSheetParser
+from .sheets import CSVMasterSheetParser, JSONMasterSheetParser, GoogleMasterSheetParser
 
 
 def main():
