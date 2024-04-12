@@ -71,9 +71,9 @@ def apply_abtests(
         with open(config_fp, "r") as config_file:
             config = json.load(config_file)
 
-    if format == "csv":
+    if sheet_format == "csv":
         sheet_parser = CSVMasterSheetParser(main_sheets)
-    elif format == "json":
+    elif sheet_format == "json":
         sheet_parser = JSONMasterSheetParser(main_sheets)
     else:
         sheet_parser = GoogleMasterSheetParser(main_sheets)
