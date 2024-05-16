@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rapidpro_abtesting"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     {name = "IDEMS International", email = "communications@idems.international"},
 ]
