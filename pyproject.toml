@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rapidpro_abtesting"
 version = "0.1.2"
 authors = [
-    {name = "IDEMS International", email = "communications@idems.international"},
+    {name = "IDEMS International", email = "contact@idems.international"},
 ]
 readme = "README.md"
 requires-python = ">=3.7"
