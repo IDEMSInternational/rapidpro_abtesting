@@ -1,9 +1,11 @@
-from abc import ABC, abstractmethod
+import copy
+import json
 import logging
 import re
-import json
-import copy
-from .node_tools import (
+from abc import ABC, abstractmethod
+
+from rapidpro_abtesting.nodes_layout import NodesLayout, make_tree_layout
+from rapidpro_abtesting.node_tools import (
     find_incoming_edges,
     get_assign_to_fixed_group_gadget,
     get_assign_to_group_gadget,
@@ -11,8 +13,11 @@ from .node_tools import (
     get_switch_node,
     get_unique_node_copy,
 )
-from .nodes_layout import NodesLayout, make_tree_layout
-from .uuid_tools import generate_random_uuid
+from rapidpro_abtesting.uuid_tools import generate_random_uuid
+
+
+logger = logging.getLogger(__name__)
+
 
 class FlowSnippet(object):
     '''A piece of flow with a single entry and exit point.
@@ -67,12 +72,12 @@ class GenericEditOp(ABC):
                        assign_to_group=False,
                        uuid_lookup=None, config=None):
         if op_type not in cls.get_operation_types():
-            logging.warning(debug_string + 'invalid operation type.')
+            logger.warning(debug_string + 'invalid operation type.')
             return None
         class_name = cls.get_operation_types()[op_type]
         parsed_node_identifier = class_name.parse_node_identifier(node_identifier)
         if parsed_node_identifier is None:
-            logging.warning(debug_string + 'invalid node identifier.')
+            logger.warning(debug_string + 'invalid node identifier.')
             return None
 
         return class_name(flow_id, row_id, parsed_node_identifier, bit_of_text,
@@ -380,9 +385,9 @@ class FlowEditOp(GenericEditOp):
         if total_occurrences == 0:
             # This might happen if we're trying to replace text that has
             # already had a replacement applied to it.
-            logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(self.bit_of_text()))
+            logger.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(self.bit_of_text()))
         if total_occurrences >= 2:
-            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
+            logger.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(self.bit_of_text()))
 
     def _prepend_send_msg_action(self, node, replacement_text):
         action = {
@@ -400,7 +405,7 @@ class FlowEditOp(GenericEditOp):
             # TODO: Also UUID
             node["actions"][0]["flow"] = replacement_text
         else:
-            logging.warning(self.debug_string() + 'No occurrences of "{}" found in node.'.format(self.bit_of_text()))
+            logger.warning(self.debug_string() + 'No occurrences of "{}" found in node.'.format(self.bit_of_text()))
 
     def _replace_in_action_list_field(self, node, replacement_text, action_field):
         '''Modifies the input node by replacing the content of a list-field
@@ -420,9 +425,9 @@ class FlowEditOp(GenericEditOp):
                         text_new = text.replace(bit_of_text, repl_text)
                         action[action_field][i] = text_new
             if total_occurrences == 0:
-                logging.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(bit_of_text))
+                logger.warning(self.debug_string() + 'No occurrences of "{}" found node.'.format(bit_of_text))
             if total_occurrences >= 2:
-                logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
+                logger.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node.'.format(bit_of_text))
 
     def _remove_in_action_list_field(self, node, action_field):
         '''Modifies the input node by removing the content of a list-field
@@ -437,12 +442,12 @@ class FlowEditOp(GenericEditOp):
                         if text.find(bit_of_text) >= 0:
                             remove_indices.append(i)
         if len(remove_indices) == 0:
-            logging.warning(
+            logger.warning(
                 self.debug_string() +
                 'No occurrences of "{}" found node.'.format(bit_of_text)
             )
         if len(remove_indices) >= 2:
-            logging.warning(
+            logger.warning(
                 self.debug_string() +
                 'Multiple occurrences of "{}" found in node.'.format(bit_of_text)
             )
@@ -474,14 +479,14 @@ class FlowEditOp(GenericEditOp):
         try:
             replacement_cases = json.loads(replacement_text)
         except ValueError:
-            logging.warning(self.debug_string() + 'Malformed replacement value "{}" (should be JSON).'.format(replacement_text))
+            logger.warning(self.debug_string() + 'Malformed replacement value "{}" (should be JSON).'.format(replacement_text))
             return
         if type(replacement_cases) != list or len(replacement_cases) != len(node["router"]["cases"]):
-            logging.warning(self.debug_string() + 'Replacement should be list of length {} but is "{}".'.format(len(node["router"]["cases"]), replacement_text))
+            logger.warning(self.debug_string() + 'Replacement should be list of length {} but is "{}".'.format(len(node["router"]["cases"]), replacement_text))
             return
         for case, node_case in zip(replacement_cases, node["router"]["cases"]):
             if not {"category_name", "type", "arguments"}.issubset(case.keys()):
-                logging.warning(self.debug_string() + 'Skipping invalid replacement case "{}".'.format(case))
+                logger.warning(self.debug_string() + 'Skipping invalid replacement case "{}".'.format(case))
                 continue
             category = next(cat for cat in node["router"]["categories"] if cat["uuid"] == node_case["category_uuid"])
             category["name"] = case["category_name"]
@@ -490,7 +495,7 @@ class FlowEditOp(GenericEditOp):
 
     def _get_assigntogroup_gadget(self, node):
         if len(self.categories()) != 2:
-            logging.warning(self.debug_string() + 'assign_to_group only for A/B tests (i.e. 2 groups).')
+            logger.warning(self.debug_string() + 'assign_to_group only for A/B tests (i.e. 2 groups).')
             return None, None
         groupA_uuid = self.categories()[0].condition_arguments[0]
         groupA_name = self.categories()[0].condition_arguments[1]
@@ -660,14 +665,14 @@ class ReplaceFlowFlowEditOp(FlowEditOp):
         flow_name = self._default_text
         flow_uuid = uuid_lookup.lookup_flow(flow_name)
         if flow_uuid is None:
-            logging.warning(self._debug_string + 'Flow ' + flow_name + ' does not exist.')
+            logger.warning(self._debug_string + 'Flow ' + flow_name + ' does not exist.')
         self._default_text = { "uuid": flow_uuid, "name": flow_name, } 
 
     def add_category(self, category, uuid_lookup):
         flow_name = category.replacement_text
         flow_uuid = uuid_lookup.lookup_flow(flow_name)
         if flow_uuid is None:
-            logging.warning(self._debug_string + 'Flow ' + flow_name + ' does not exist.')
+            logger.warning(self._debug_string + 'Flow ' + flow_name + ' does not exist.')
         category.replacement_text = { "uuid": flow_uuid, "name": flow_name, }
         self._categories.append(category)
 
@@ -788,59 +793,55 @@ class TranslationEditOp(GenericEditOp):
     def apply_operation(self, flow, node):
         localization = flow.get("localization", {}).get(self._language)
         if not localization:
-            logging.warning(f'{self._debug_string} Flow {flow["name"]} has no localization for language {self._language}.')
+            logger.warning(f'{self._debug_string} Flow {flow["name"]} has no localization for language {self._language}.')
             [node]
 
         self._replace_translation(localization, node)
         return [node]
 
     def _replace_text_in_message(self, localization, node):
-        # TODO: Code duplication with FlowEditOp
         total_occurrences = 0
         for action in node["actions"]:
             if action["type"] == "send_msg":
                 tr_action = localization.get(action["uuid"])
                 if not tr_action:
-                    logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
+                    logger.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
                     continue
-                if not "text" in tr_action:
-                    logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no text.')
+                if "text" not in tr_action:
+                    logger.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no text.')
                     continue
                 text = tr_action["text"][0]  # not sure why in translations the text is a list.
                 total_occurrences += text.count(self.bit_of_text())
                 text_new = text.replace(self.bit_of_text(), self.default_text())
                 tr_action["text"][0] = text_new
-        # TODO: If we don't just store the node uuid, but also action uuid
-        #   where edit_op is applicable, we could give more helpful
-        #   messages here by referring to the action text that doesn't match
+
         if total_occurrences == 0:
             # This might happen if we're trying to replace text that has
             # already had a replacement applied to it.
-            logging.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(self.bit_of_text()))
+            logger.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(self.bit_of_text()))
         if total_occurrences >= 2:
-            logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(self.bit_of_text()))
+            logger.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(self.bit_of_text()))
 
     def _replace_in_action_list_field(self, localization, node, action_field):
-        # TODO: Code duplication with FlowEditOp
         for bit_of_text, repl_text in zip(self.bit_of_text().split(';'), self.default_text().split(';')):
             total_occurrences = 0
             for action in node["actions"]:
                 if action["type"] == "send_msg":
                     tr_action = localization.get(action["uuid"])
                     if not tr_action:
-                        logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
+                        logger.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" does not exist.')
                         continue
-                    if not "text" in tr_action:
-                        logging.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no {action_field}.')
+                    if "text" not in tr_action:
+                        logger.warning(self.debug_string() + f'Translation of action "{action["uuid"]}" has no {action_field}.')
                         continue
                     for i, text in enumerate(tr_action[action_field]):
                         total_occurrences += text.count(bit_of_text)
                         text_new = text.replace(bit_of_text, repl_text)
                         tr_action[action_field][i] = text_new
             if total_occurrences == 0:
-                logging.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(bit_of_text))
+                logger.warning(self.debug_string() + 'No occurrences of "{}" found node translation.'.format(bit_of_text))
             if total_occurrences >= 2:
-                logging.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(bit_of_text))
+                logger.warning(self.debug_string() + 'Multiple occurrences of "{}" found in node translation.'.format(bit_of_text))
 
     def _replace_text_in_quick_replies(self, localization, node):
         self._replace_in_action_list_field(localization, node, "quick_replies")
@@ -860,21 +861,20 @@ class TranslationEditOp(GenericEditOp):
         try:
             replacement_cases = json.loads(replacement_text)
         except ValueError:
-            logging.warning(self.debug_string() + 'Malformed replacement value "{}" (should be JSON).'.format(replacement_text))
+            logger.warning(self.debug_string() + 'Malformed replacement value "{}" (should be JSON).'.format(replacement_text))
             return
         if type(replacement_cases) != list or len(replacement_cases) != len(node["router"]["cases"]):
-            logging.warning(self.debug_string() + 'Replacement should be list of length {} but is "{}".'.format(len(node["router"]["cases"]), replacement_text))
+            logger.warning(self.debug_string() + 'Replacement should be list of length {} but is "{}".'.format(len(node["router"]["cases"]), replacement_text))
             return
         for case, node_case in zip(replacement_cases, node["router"]["cases"]):
-            # TODO: Don't ignore bit of text
             if not {"arguments"}.issubset(case.keys()):
-                logging.warning(self.debug_string() + 'No case arguments provided for tranlsation "{}".'.format(case))
+                logger.warning(self.debug_string() + 'No case arguments provided for tranlsation "{}".'.format(case))
             else:
                 tr_case = localization.get(node_case["uuid"])
                 if not tr_case:
-                    logging.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" does not exist.')
-                elif not "arguments" in tr_case:
-                    logging.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" has no arguments.')
+                    logger.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" does not exist.')
+                elif "arguments" not in tr_case:
+                    logger.warning(self.debug_string() + f'Translation of case "{node_case["uuid"]}" has no arguments.')
                 else:
                     for i, arg in enumerate(case["arguments"]):
                         if i < len(tr_case["arguments"]):
@@ -882,15 +882,15 @@ class TranslationEditOp(GenericEditOp):
                             tr_case["arguments"][i] = arg
 
             if not {"category_name"}.issubset(case.keys()):
-                logging.warning(self.debug_string() + 'No category name for tranlsation "{}".'.format(case))
+                logger.warning(self.debug_string() + 'No category name for tranlsation "{}".'.format(case))
                 continue
             node_category = next(cat for cat in node["router"]["categories"] if cat["uuid"] == node_case["category_uuid"])
             tr_category = localization.get(node_category["uuid"])
             if not tr_category:
-                logging.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" does not exist.')
+                logger.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" does not exist.')
                 continue
-            if not "name" in tr_category:
-                logging.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" has no name.')
+            if "name" not in tr_category:
+                logger.warning(self.debug_string() + f'Translation of category "{node_category["uuid"]}" has no name.')
                 continue
             tr_category["name"][0] = case["category_name"]
 
