@@ -1,4 +1,4 @@
-group_switch_node_template = '''
+group_switch_node_template = """
         {
           "uuid": "Node_UUID",
           "actions": [],
@@ -60,10 +60,10 @@ group_switch_node_template = '''
             }
           ]
         }
-        '''
+        """
 
 
-assign_to_A_node = '''
+assign_to_A_node = """
         {
           "uuid": "AssignToGroupANode_UUID",
           "actions": [
@@ -84,9 +84,9 @@ assign_to_A_node = '''
               "destination_uuid": "Destination_UUID"
             }
           ]
-        }'''
+        }"""
 
-assign_to_B_node = '''
+assign_to_B_node = """
         {
           "uuid": "AssignToGroupBNode_UUID",
           "actions": [
@@ -107,40 +107,47 @@ assign_to_B_node = '''
               "destination_uuid": "Destination_UUID"
             }
           ]
-        }'''
+        }"""
 
-assign_to_A_ui = '''
+assign_to_A_ui = """
           "AssignToGroupANode_UUID": {
             "position": {
               "left": 160,
               "top": 260
             },
             "type": "execute_actions"
-          }'''
+          }"""
 
-assign_to_B_ui = '''
+assign_to_B_ui = """
           "AssignToGroupBNode_UUID": {
             "position": {
               "left": 380,
               "top": 260
             },
             "type": "execute_actions"
-          }'''
+          }"""
 
-assign_to_fixed_group_template = '''
+assign_to_fixed_group_template = (
+    """
     {
-      "nodes": 
+      "nodes":
       [
-        ''' + assign_to_A_node + '''
+        """
+    + assign_to_A_node
+    + """
       ],
       "_ui": {
         "nodes": {
-          ''' + assign_to_A_ui + '''
+          """
+    + assign_to_A_ui
+    + """
         }
       }
-    }'''
+    }"""
+)
 
-assign_to_random_group_template = '''
+assign_to_random_group_template = (
+    """
     {
       "nodes": [
         {
@@ -232,8 +239,11 @@ assign_to_random_group_template = '''
               "destination_uuid": "AssignToGroupBNode_UUID"
             }
           ]
-        },''' + assign_to_A_node + ',' + \
-                assign_to_B_node + '''
+        },"""
+    + assign_to_A_node
+    + ","
+    + assign_to_B_node
+    + """
       ],
       "_ui": {
         "nodes": {
@@ -254,9 +264,13 @@ assign_to_random_group_template = '''
               "top": 140
             },
             "config": null
-          },''' + assign_to_A_ui + ',' + \
-                  assign_to_B_ui + '''
+          },"""
+    + assign_to_A_ui
+    + ","
+    + assign_to_B_ui
+    + """
         }
       }
-    }  
-    '''
+    }
+    """
+)

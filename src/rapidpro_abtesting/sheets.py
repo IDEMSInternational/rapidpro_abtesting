@@ -47,7 +47,7 @@ def load_content_from_csv(filename):
 
 def load_content_from_json(filename):
     tables = {}
-    with open(filename, newline="", encoding='utf-8') as f:
+    with open(filename, newline="", encoding="utf-8") as f:
         data = json.load(f)
     for name, content in data["sheets"].items():
         headers = list(content[0].keys())
