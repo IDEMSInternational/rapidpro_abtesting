@@ -1,7 +1,9 @@
-from .uuid_tools import generate_random_uuid
 import logging
 
+from rapidpro_abtesting.uuid_tools import generate_random_uuid
 
+
+logger = logging.getLogger(__name__)
 FIRST_SPELLING_COLID = 3
 
 
@@ -158,7 +160,7 @@ def replace_flow_with_language_chooser(data, flow):
 
     header = ["Language", "Main message", "Error message"] + ["Language name in {}".format(s) for s in languages] + ["Alternative Spellings"]
     if data[0][:len(header)] != header:
-        logging.error("Invalid header row. Should be ", header)
+        logger.error("Invalid header row. Should be ", header)
         return
 
     # Replace the entire set of nodes.

@@ -12,6 +12,9 @@ import logging
 from pathlib import Path
 from abc import ABC, abstractmethod
 
+
+logger = logging.getLogger(__name__)
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
@@ -44,7 +47,7 @@ def load_content_from_csv(filename):
 
 def load_content_from_json(filename):
     tables = {}
-    with open(filename, newline="",encoding='utf-8') as f:
+    with open(filename, newline="", encoding='utf-8') as f:
         data = json.load(f)
     for name, content in data["sheets"].items():
         headers = list(content[0].keys())
@@ -79,10 +82,10 @@ class MasterSheetParser(ABC):
 
     def get_flow_edit_sheet_groups(self, config={}):
         if self._master_content is None:
-            logging.warning("Master sheet " + self._name + "could not be loaded.")
+            logger.warning("Master sheet " + self._name + "could not be loaded.")
             return []
         if not self._is_valid_master_header(self._master_content[0]):
-            logging.warning("Master sheet " + self._name + "has invalid header row.")
+            logger.warning("Master sheet " + self._name + "has invalid header row.")
             return []
         flow_operation_dict = defaultdict(list)
         for i, row in enumerate(self._master_content[1:]):
@@ -112,7 +115,7 @@ class MasterSheetParser(ABC):
 
     def _parse_row(self, row, debug_string, config={}):
         if len(row) < type(self)._N_COLUMNS:
-            logging.warning(debug_string + "Too few entries in row.")
+            logger.warning(debug_string + "Too few entries in row.")
             return None
 
         sheet_name = row[type(self)._SHEET_NAME]
@@ -125,7 +128,7 @@ class MasterSheetParser(ABC):
                 order = row[type(self)._ORDER]
                 order = int(order)
             except ValueError:
-                logging.warning(
+                logger.warning(
                     debug_string + "invalid order: " + order + ". Assuming 0."
                 )
                 order = 0
@@ -133,7 +136,7 @@ class MasterSheetParser(ABC):
             order = 0
 
         if status != "released":
-            logging.info(debug_string + "Skipping because status is not released.")
+            logger.info(debug_string + "Skipping because status is not released.")
             return None
         if operation_type == "flow_testing":
             content = self._get_content_from_sheet_name(sheet_name, debug_string)
@@ -151,15 +154,16 @@ class MasterSheetParser(ABC):
                 order,
             )
         else:
-            logging.warning(debug_string + "invalid operation_type: " + operation_type)
+            logger.warning(debug_string + "invalid operation_type: " + operation_type)
 
     def _add_to_master_content(self, content):
         if self._master_content is None:
             self._master_content = content
         else:
             if self._master_content[0] != content[0]:
-                logging.warning(
-                    f"Warning: In compatible master header rows: {self._master_content[0]} differs from {content[0]}."
+                logger.warning(
+                    "Warning: In compatible master header rows: "
+                    f"{self._master_content[0]} differs from {content[0]}."
                 )
             self._master_content += content[1:]
 
@@ -172,7 +176,7 @@ class GoogleMasterSheetParser(MasterSheetParser):
         for spreadsheet_id in spreadsheet_ids:
             self._add_master_sheet(spreadsheet_id)
         if not self._master_content:
-            logging.warning(
+            logger.warning(
                 "No master sheet with title " + type(self).MASTER_SHEET_NAME + " found."
             )
         self._name = self._name[:-1]
@@ -189,13 +193,13 @@ class GoogleMasterSheetParser(MasterSheetParser):
             if name == type(self).MASTER_SHEET_NAME:
                 self._add_to_master_content(content)
             elif name in self._sheets:
-                logging.warning("Warning: Duplicate sheet name: " + name)
+                logger.warning("Warning: Duplicate sheet name: " + name)
             else:
                 self._sheets[name] = content
 
     def _get_content_from_sheet_name(self, name, debug_string):
-        if not name in self._sheets:
-            logging.warning(debug_string + name + " does not exist.")
+        if name not in self._sheets:
+            logger.warning(debug_string + name + " does not exist.")
             return None
         return self._sheets[name]
 
@@ -214,8 +218,9 @@ class CSVMasterSheetParser(MasterSheetParser):
         if not self._path:
             self._path = path
         elif path != self._path:
-            logging.error(
-                f"Error: Master sheets {self._name} and {name} must be in the same directory. Skipping {name}."
+            logger.error(
+                f"Error: Master sheets {self._name} and {name} must be in the same"
+                f" directory. Skipping {name}."
             )
             return
 
@@ -226,7 +231,7 @@ class CSVMasterSheetParser(MasterSheetParser):
     def _get_content_from_sheet_name(self, name, debug_string):
         filename = os.path.join(self._path, name + ".csv")
         if not Path(filename).is_file():
-            logging.warning(debug_string + filename + " does not exist.")
+            logger.warning(debug_string + filename + " does not exist.")
             return None
         return load_content_from_csv(filename)
 
@@ -240,7 +245,7 @@ class JSONMasterSheetParser(MasterSheetParser):
         for filename in filenames:
             self._add_master_sheet(filename)
         if not self._master_content:
-            logging.warning(
+            logger.warning(
                 "No master sheet with title " + type(self).MASTER_SHEET_NAME + " found."
             )
         self._name = self._name[:-1]
@@ -252,13 +257,13 @@ class JSONMasterSheetParser(MasterSheetParser):
             if name == type(self).MASTER_SHEET_NAME:
                 self._add_to_master_content(content)
             elif name in self._sheets:
-                logging.warning("Warning: Duplicate sheet name: " + name)
+                logger.warning("Warning: Duplicate sheet name: " + name)
             else:
                 self._sheets[name] = content
 
     def _get_content_from_sheet_name(self, name, debug_string):
-        if not name in self._sheets:
-            logging.warning(debug_string + name + " does not exist.")
+        if name not in self._sheets:
+            logger.warning(debug_string + name + " does not exist.")
             return None
         return self._sheets[name]
 

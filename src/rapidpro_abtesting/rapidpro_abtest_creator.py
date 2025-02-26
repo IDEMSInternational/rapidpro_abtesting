@@ -5,6 +5,10 @@ from collections import defaultdict
 from .uuid_tools import UUIDLookup
 from .nodes_layout import normalize_flow_layout
 
+
+logger = logging.getLogger(__name__)
+
+
 class RapidProABTestCreator(object):
     '''Modifies RapidPro flows to support A/B testing.
 
@@ -27,7 +31,6 @@ class RapidProABTestCreator(object):
       - The row_id from the A/B testing spreadsheets is ignored
       - Further operations may be supported in future versions.
     - No ui_ output yet, RapidPro will lay it out in a single column.
-      TODO: Take input node layout, modify sensibly.
     '''
 
     def __init__(self, json_filename):
@@ -59,18 +62,13 @@ class RapidProABTestCreator(object):
         Args:
             edit_op:
         '''
-
-        # TODO: We should also store the action(s) where the text was found
-        #   This would allow us to log more helpful warnings.
-
         results = []
-        # TODO: Caching for performance?
         node_flows = []
         for flow in self._data["flows"]:
             if edit_op.is_match_for_flow(flow["name"]):
                 node_flows.append(flow)
         if not node_flows:
-            logging.warning(edit_op.debug_string() + 'No flow that matches "{}" found.'.format(edit_op.flow_id()))
+            logger.warning(edit_op.debug_string() + 'No flow that matches "{}" found.'.format(edit_op.flow_id()))
             return []
         for node_flow in node_flows:
             for node in node_flow["nodes"]:
@@ -91,9 +89,9 @@ class RapidProABTestCreator(object):
             for edit_op in sheet.edit_ops():
                 uuids = self._find_matching_nodes(edit_op)
                 if len(uuids) == 0:
-                    logging.warning(edit_op.debug_string() + "No node found where operation is applicable.")
+                    logger.warning(edit_op.debug_string() + "No node found where operation is applicable.")
                 if len(uuids) >= 2 and edit_op.matches_unique_flow() and edit_op.matches_unique_node_identifier():
-                    logging.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
+                    logger.warning(edit_op.debug_string() + "Multiple nodes found where operation is applicable.")
                 for uuid in uuids:
                     edit_ops_by_node[uuid].append(edit_op)
         return edit_ops_by_node
@@ -148,10 +146,6 @@ def apply_editops_to_node(flow, node, edit_ops):
         node: node to apply edit_ops to
         edit_ops (`FlowEditOp`):
     '''
-
-    # TODO: There could be multiple ops from the same A/B test
-    #   on the same node. Simplify tree/variations in that case?
-
     operable_nodes = [node]
     for edit_op in edit_ops:
         new_operable_nodes = []

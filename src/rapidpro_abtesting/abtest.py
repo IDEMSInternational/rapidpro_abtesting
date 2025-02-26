@@ -1,8 +1,17 @@
-from .contact_group import ContactGroup
 import copy
 import logging
 from abc import ABC, abstractmethod
-from .operations import FlowEditOp, TranslationEditOp, FLOWEDIT_OPERATION_TYPES, TRANSLATIONEDIT_OPERATION_TYPES
+
+from rapidpro_abtesting.contact_group import ContactGroup
+from rapidpro_abtesting.operations import (
+    FlowEditOp,
+    TranslationEditOp,
+    FLOWEDIT_OPERATION_TYPES,
+    TRANSLATIONEDIT_OPERATION_TYPES
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 class SwitchCategory(object):
@@ -55,12 +64,12 @@ class FlowSheet(ABC):
         self._uuid_lookup = uuid_lookup
 
         if self._rows[0][:len(self.FIXED_COLS)] != self.FIXED_COLS:
-            logging.warning('ABTest {} has invalid header.'.format(self._name))
+            logger.warning('ABTest {} has invalid header.'.format(self._name))
             return
 
         self._category_names = self._get_category_names(self._rows[0])
         if self._category_names is None:
-            logging.warning('Omitting {} {}.'.format(type(self), self._name))
+            logger.warning('Omitting {} {}.'.format(type(self), self._name))
             return
 
         self._generate_group_pair()
@@ -72,12 +81,12 @@ class FlowSheet(ABC):
 
     def _get_operation_type(self, row, debug_string):
         if len(row) == 0:
-            logging.warning(debug_string + 'empty row.')
+            logger.warning(debug_string + 'empty row.')
             return None
 
         op_type_str = row[self.TYPE]
         if not op_type_str in self.OPERATION_TYPES:
-            logging.warning(debug_string + 'invalid type.')
+            logger.warning(debug_string + 'invalid type.')
             return None
 
         return self.OPERATION_TYPES[op_type_str]
@@ -140,12 +149,12 @@ class FlowEditSheet(FlowSheet):
                     valid_prefixes = False
                     break
             if not valid_prefixes:
-                logging.warning(
+                logger.warning(
                     f"FlowEditSheet {self._name} has invalid category header."
                 )
                 return None
             if len(set(names)) != 1:
-                logging.warning(
+                logger.warning(
                     f"FlowEditSheet {self._name} has category with inconsistent name in header row."
                 )
                 return None
@@ -228,7 +237,7 @@ class ABTest(FlowSheet):
     def _get_category_names(self, row):
         # Lazy implementation. Only 2 groups supported right now.
         if not row[self.CATEGORIES].startswith(self.CATEGORY_PREFIXES[0]):
-            logging.warning('ABTest {} has invalid group B header.'.format(self._name))
+            logger.warning('ABTest {} has invalid group B header.'.format(self._name))
             return None
         return [row[self.CATEGORIES].split(':')[1]]
 
@@ -249,7 +258,7 @@ class ABTest(FlowSheet):
         if not op_type.needs_parameter():
             n_required_cols = 4
         if len(row) < n_required_cols:
-            logging.warning(debug_string + 'too few entries.')
+            logger.warning(debug_string + 'too few entries.')
             return None
 
         if len(row) > self.ASSIGN_TO_GROUP and row[self.ASSIGN_TO_GROUP] in ["TRUE", "true", "True", True]:
