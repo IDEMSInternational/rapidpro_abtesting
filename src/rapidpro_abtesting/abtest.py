@@ -15,7 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class SwitchCategory(object):
-    def __init__(self, name, condition_type, condition_arguments, replacement_text):
+    def __init__(
+        self,
+        name,
+        condition_type,
+        condition_arguments,
+        replacement_text,
+    ):
         self.name = name
         self.condition_type = condition_type
         # If the condition type is has_group, there are 2 arguments: uuid and name
@@ -87,7 +93,7 @@ class FlowSheet(ABC):
             return None
 
         op_type_str = row[self.TYPE]
-        if not op_type_str in self.OPERATION_TYPES:
+        if op_type_str not in self.OPERATION_TYPES:
             logger.warning(debug_string + "invalid type.")
             return None
 
@@ -161,7 +167,8 @@ class FlowEditSheet(FlowSheet):
                 return None
             if len(set(names)) != 1:
                 logger.warning(
-                    f"FlowEditSheet {self._name} has category with inconsistent name in header row."
+                    f"FlowEditSheet {self._name} has category with inconsistent name in"
+                    " header row."
                 )
                 return None
             category_names.append(names[0])
@@ -199,9 +206,9 @@ class FlowEditSheet(FlowSheet):
                 row[len(self.FIXED_COLS) + len(self.CATEGORY_PREFIXES) * i + 1]
             ]
             if condition_arguments == [""] and condition_type in NO_ARG_CONDITION_TYPES:
-                # For some condition_types "" is a valid and sensible argument, while for
-                # others, in particular those that work without arguments, the intent is
-                # likely to have no argument.
+                # For some condition_types "" is a valid and sensible argument, while
+                # for others, in particular those that work without arguments, the
+                # intent is likely to have no argument.
                 condition_arguments = []
             replacement_text = row[
                 len(self.FIXED_COLS) + len(self.CATEGORY_PREFIXES) * i

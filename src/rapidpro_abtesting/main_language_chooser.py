@@ -13,12 +13,16 @@ def main():
         "input", help="RapidPro JSON file defining the input RapidPro flows."
     )
     parser.add_argument(
-        "flow_name", help="Name of the flow to be replaced with a language chooser."
+        "flow_name",
+        help="Name of the flow to be replaced with a language chooser.",
     )
     parser.add_argument("output", help="RapidPro JSON file to write the output to.")
     parser.add_argument(
         "sheet",
-        help="Sheet defining the language chooser options. Either a csv file or a Google Sheet ID.",
+        help=(
+            "Sheet defining the language chooser options. Either a csv file or a Google"
+            " Sheet ID."
+        ),
     )
     parser.add_argument(
         "--format",
@@ -34,7 +38,7 @@ def main():
     if args.format == "csv":
         data = load_content_from_csv(args.sheet)
     else:
-        logging.error(f"Google Sheets currently not supported.")
+        logging.error("Google Sheets currently not supported.")
         exit(0)
 
     rpx = json.load(open(args.input, "r"))

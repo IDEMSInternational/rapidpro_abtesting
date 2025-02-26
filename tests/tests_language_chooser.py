@@ -1,12 +1,8 @@
-import logging
 import unittest
 
 from rapidpro_abtesting.language_chooser import replace_flow_with_language_chooser
 from rapidpro_abtesting.sheets import load_content_from_csv
 from .testing_tools import Context, traverse_flow
-
-
-logging.basicConfig(filename="tests.log", level=logging.WARNING, filemode="w")
 
 
 class TestLanguageChooser(unittest.TestCase):
@@ -15,11 +11,19 @@ class TestLanguageChooser(unittest.TestCase):
         self.intro_messages = [
             (
                 "send_msg",
-                "Hai! Terima kasih kerana mendaftar untuk menerima tip keibubapaan ini. Sila beritahu kami bahasa pilihan anda:\n\n1. Bahasa Melayu\n2. Bahasa Inggeris\n",
+                (
+                    "Hai! Terima kasih kerana mendaftar untuk menerima tip keibubapaan"
+                    " ini. Sila beritahu kami bahasa pilihan anda:\n\n"
+                    "1. Bahasa Melayu\n2. Bahasa Inggeris\n"
+                ),
             ),
             (
                 "send_msg",
-                "Hi! Thank you for signing up to receive these parenting tips. Please tell us which language you would like:\n\n1. Malay\n2. English\n",
+                (
+                    "Hi! Thank you for signing up to receive these parenting tips."
+                    " Please tell us which language you would like:\n\n"
+                    "1. Malay\n2. English\n"
+                ),
             ),
         ]
         self.error_messages = [
@@ -52,7 +56,3 @@ class TestLanguageChooser(unittest.TestCase):
         msgs4 = traverse_flow(flow, Context(inputs=["1"]))
         exp4 = self.intro_messages + [("set_contact_language", "msa")]
         self.assertEqual(msgs4, exp4)
-
-
-if __name__ == "__main__":
-    unittest.main()

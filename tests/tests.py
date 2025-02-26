@@ -24,7 +24,6 @@ from rapidpro_abtesting.sheets import (
     CSVMasterSheetParser,
     JSONMasterSheetParser,
 )
-from rapidpro_abtesting.contact_group import ContactGroup
 from rapidpro_abtesting.uuid_tools import UUIDLookup
 from rapidpro_abtesting.operations import (
     FlowEditOp,
@@ -477,14 +476,22 @@ class TestOperations(unittest.TestCase):
 
     def test_apply_replace_wait_for_response_cases(self):
         matching_cases = """[
-            {"category_name": "Good", "type": "has_any_word", "arguments": ["good"]}, 
-            {"category_name": "Email", "type": "has_email", "arguments": []}, 
-            {"category_name": "Number around 50", "arguments": [40, 60], "type": "has_number_between"}
+            {"category_name": "Good", "type": "has_any_word", "arguments": ["good"]},
+            {"category_name": "Email", "type": "has_email", "arguments": []},
+            {
+                "category_name": "Number around 50",
+                "arguments": [40, 60],
+                "type": "has_number_between"
+            }
         ]"""
         replacement_1 = matching_cases
         replacement_2 = """[
-            {"category_name": "Some stuff", "type": "has_phrase", "arguments": ["some stuff"]}, 
-            {"category_name": "Ok", "type": "has_any_word", "arguments": ["OK"]}, 
+            {
+                "category_name": "Some stuff",
+                "type": "has_phrase",
+                "arguments": ["some stuff"]
+            },
+            {"category_name": "Ok", "type": "has_any_word", "arguments": ["OK"]},
             {"category_name": "Meh", "type": "has_any_word", "arguments": ["meh"]}
         ]"""
         row = [
@@ -844,8 +851,6 @@ class TestRapidProABTestCreatorMethods(unittest.TestCase):
         self.abtests = [abtest1, abtest2]
 
     def make_minimal_test_op(self, flow_name, row_id, text_content):
-        dummy_group = ContactGroup(None, None)
-        dummy_group_pair = (dummy_group, dummy_group)
         dummy_row = [
             "replace_bit_of_text",
             flow_name,
@@ -989,7 +994,7 @@ class TestRapidProABTestCreatorLinear(unittest.TestCase):
         ]
         exp4 = exp1
 
-        # Traverse the flow with different group memberships and check the sent messages.
+        # Traverse the flow with different group memberships and check the sent messages
         flows = rpx._data["flows"][0]
         groupsAA = [self.abtests[0].groupA().name, self.abtests[1].groupA().name]
         msgs1 = traverse_flow(flows, Context(groupsAA))
@@ -1092,7 +1097,8 @@ class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
                         self.assertEqual(translations[uuid0], translations[uuid1])
 
     def test_wait_for_response_functionality(self):
-        make_exp = lambda s: [("send_msg", "Hello. Choose an option."), ("send_msg", s)]
+        def make_exp(s):
+            return [("send_msg", "Hello. Choose an option."), ("send_msg", s)]
         flows = self.rpx._data["flows"][0]
         groupsA = [self.abtests[0].groupA().name]
         groupsB = [self.abtests[0].groupB().name]
@@ -1128,7 +1134,9 @@ class TestRapidProABTestCreatorReplaceSplitOperand(unittest.TestCase):
         filename = "testdata/SplitByExample.json"
         rpx = RapidProABTestCreator(filename)
         rpx.apply_abtests(self.abtests)
-        make_exp = lambda s: [("send_msg", "Start"), ("send_msg", s)]
+
+        def make_exp(s):
+            return [("send_msg", "Start"), ("send_msg", s)]
 
         flows = rpx._data["flows"][0]
         groupsA = [self.abtests[0].groupA().name]
@@ -1409,7 +1417,7 @@ class TestRapidProEditsLinear(unittest.TestCase):
             ("send_msg", "This is a test."),
         ]
 
-        # Traverse the flow with different group memberships and check the sent messages.
+        # Traverse the flow with different group memberships and check the sent messages
         flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context())
         self.assertEqual(msgs1, exp1)
@@ -1495,7 +1503,7 @@ class TestMasterSheet(unittest.TestCase):
             ("send_msg", "This is a test."),
         ]
 
-        # Traverse the flow with different group memberships and check the sent messages.
+        # Traverse the flow with different group memberships and check the sent messages
         flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context([self.groupA_name]))
         self.assertEqual(msgs1, exp1)
@@ -1557,7 +1565,7 @@ class TestMasterSheetOrdered(unittest.TestCase):
             ("send_msg", "This is a test."),
         ]
 
-        # Traverse the flow with different group memberships and check the sent messages.
+        # Traverse the flow with different group memberships and check the sent messages
         flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context([self.groupA_name]))
         self.assertEqual(msgs1, exp1)
@@ -1604,7 +1612,7 @@ class TestMasterSheetWithConfig(unittest.TestCase):
             ("send_msg", "This is a test."),
         ]
 
-        # Traverse the flow with different group memberships and check the sent messages.
+        # Traverse the flow with different group memberships and check the sent messages
         flows = rpx._data["flows"][0]
         msgs1 = traverse_flow(flows, Context(random_choices=[1, 0]))
         self.assertEqual(msgs1, exp1)

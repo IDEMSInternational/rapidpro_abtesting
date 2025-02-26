@@ -130,7 +130,7 @@ assign_to_B_ui = """
 assign_to_fixed_group_template = (
     """
     {
-      "nodes": 
+      "nodes":
       [
         """
     + assign_to_A_node
@@ -271,6 +271,6 @@ assign_to_random_group_template = (
     + """
         }
       }
-    }  
+    }
     """
 )

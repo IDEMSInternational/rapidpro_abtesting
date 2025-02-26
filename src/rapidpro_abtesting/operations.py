@@ -127,7 +127,7 @@ class GenericEditOp(ABC):
         else:
             self._flow_id = flow_id
             self._flow_match_regex = False
-        if type(node_identifier) == str and node_identifier[:6].lower() == "regex:":
+        if isinstance(node_identifier, str) and node_identifier[:6].lower() == "regex:":
             self._node_identifier = node_identifier[6:]
             self._node_match_regex = True
         else:
@@ -591,7 +591,7 @@ class FlowEditOp(GenericEditOp):
                 )
             )
             return
-        if type(replacement_cases) != list or len(replacement_cases) != len(
+        if not isinstance(replacement_cases, list) or len(replacement_cases) != len(
             node["router"]["cases"]
         ):
             logger.warning(
@@ -911,12 +911,16 @@ FLOWEDIT_OPERATION_TYPES = {
     "remove_attachments": RemoveAttachmentsFlowEditOp,
     "replace_saved_value": ReplaceSavedValueFlowEditOp,
     "assign_to_group_before_msg_node": AssignToGroupBeforeMsgNodeFlowEditOp,
-    "assign_to_group_before_save_value_node": AssignToGroupBeforeSaveValueNodeFlowEditOp,
-    "replace_flow": ReplaceFlowFlowEditOp,  # TODO: rename replace_entered_flow?
+    "assign_to_group_before_save_value_node": (
+        AssignToGroupBeforeSaveValueNodeFlowEditOp
+    ),
+    "replace_flow": ReplaceFlowFlowEditOp,
     "replace_wait_for_response_cases": ReplaceWaitForResponseCasesFlowEditOp,
     "replace_split_operand": ReplaceSplitOperandFlowEditOp,
     "prepend_send_msg_action": PrependSendMsgActionFlowEditOp,
-    "prepend_send_msg_action_to_save_value_node": PrependSendMsgActionToSaveValueNodeFlowEditOp,
+    "prepend_send_msg_action_to_save_value_node": (
+        PrependSendMsgActionToSaveValueNodeFlowEditOp
+    ),
 }
 
 
@@ -962,7 +966,8 @@ class TranslationEditOp(GenericEditOp):
         localization = flow.get("localization", {}).get(self._language)
         if not localization:
             logger.warning(
-                f'{self._debug_string} Flow {flow["name"]} has no localization for language {self._language}.'
+                f'{self._debug_string} Flow {flow["name"]} has no localization for'
+                f' language {self._language}.'
             )
             [node]
 
@@ -1020,14 +1025,14 @@ class TranslationEditOp(GenericEditOp):
                     tr_action = localization.get(action["uuid"])
                     if not tr_action:
                         logger.warning(
-                            self.debug_string()
-                            + f'Translation of action "{action["uuid"]}" does not exist.'
+                            f'{self.debug_string()} Translation of action'
+                            f' "{action["uuid"]}" does not exist.'
                         )
                         continue
                     if "text" not in tr_action:
                         logger.warning(
-                            self.debug_string()
-                            + f'Translation of action "{action["uuid"]}" has no {action_field}.'
+                            f'{self.debug_string()} Translation of action'
+                            f' "{action["uuid"]}" has no {action_field}.'
                         )
                         continue
                     for i, text in enumerate(tr_action[action_field]):
@@ -1074,7 +1079,7 @@ class TranslationEditOp(GenericEditOp):
                 )
             )
             return
-        if type(replacement_cases) != list or len(replacement_cases) != len(
+        if not isinstance(replacement_cases, list) or len(replacement_cases) != len(
             node["router"]["cases"]
         ):
             logger.warning(
@@ -1105,7 +1110,8 @@ class TranslationEditOp(GenericEditOp):
                 else:
                     for i, arg in enumerate(case["arguments"]):
                         if i < len(tr_case["arguments"]):
-                            # There's a bug in RapidPro where the translation only has the first argument
+                            # There's a bug in RapidPro where the translation only has
+                            # the first argument
                             tr_case["arguments"][i] = arg
 
             if not {"category_name"}.issubset(case.keys()):
@@ -1122,8 +1128,8 @@ class TranslationEditOp(GenericEditOp):
             tr_category = localization.get(node_category["uuid"])
             if not tr_category:
                 logger.warning(
-                    self.debug_string()
-                    + f'Translation of category "{node_category["uuid"]}" does not exist.'
+                    f'{self.debug_string()} Translation of category'
+                    f' "{node_category["uuid"]}" does not exist.'
                 )
                 continue
             if "name" not in tr_category:
