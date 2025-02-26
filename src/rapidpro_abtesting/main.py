@@ -41,12 +41,15 @@ def main():
         help="JSON config file.",
     )
     args = parser.parse_args()
+
+    if args.logfile:
+        logging.basicConfig(filename=args.logfile, level=logging.WARNING, filemode="w")
+
     apply_abtests(
         args.input,
         args.output,
         args.master_sheets,
         args.format,
-        logfile=args.logfile,
         config_fp=args.config,
     )
 
@@ -56,17 +59,11 @@ def apply_abtests(
     output_flow,
     main_sheets,
     sheet_format,
-    logfile=None,
+    logfile=None,  # deprecated
     config_fp=None,
 ):
-    if logfile:
-        logging.basicConfig(
-            filename=logfile,
-            level=logging.WARNING,
-            filemode="w",
-        )
-
     config = {}
+
     if config_fp:
         with open(config_fp, "r") as config_file:
             config = json.load(config_file)
@@ -80,16 +77,11 @@ def apply_abtests(
 
     flow_edit_sheet_groups = sheet_parser.get_flow_edit_sheet_groups(config)
     rpx = RapidProABTestCreator(input_flow)
-    try:
-        for flow_edit_sheets in flow_edit_sheet_groups:
-            rpx.apply_abtests(flow_edit_sheets)
-        rpx.export_to_json(output_flow)
-    finally:
-        # Close the log file explicitly
-        if logfile:
-            # Close all existing log file handlers
-            for handler in logging.root.handlers[:]:  
-                logging.root.removeHandler(handler)
+
+    for flow_edit_sheets in flow_edit_sheet_groups:
+        rpx.apply_abtests(flow_edit_sheets)
+
+    rpx.export_to_json(output_flow)
 
 
 if __name__ == "__main__":
