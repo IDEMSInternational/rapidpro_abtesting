@@ -5,8 +5,10 @@ from .uuid_tools import generate_random_uuid
 from .templates import assign_to_random_group_template, assign_to_fixed_group_template
 
 
-def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uuid, destination_uuid):
-    '''
+def get_assign_to_group_gadget(
+    groupA_name, groupA_uuid, groupB_name, groupB_uuid, destination_uuid
+):
+    """
     Create a gadget that checks whether the contact is in a group
     from a group pair (which is specified in test_op), and if not,
     randomly add the contact to one group from the pair.
@@ -17,27 +19,30 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
             All exit points are rerouted to the specified destination UUID.
         node layout dict: mapping node uuid to layout information.
 
-    '''
-    template = assign_to_random_group_template \
-        .replace("EntryNode_UUID", generate_random_uuid()) \
-        .replace("CaseA_UUID", generate_random_uuid()) \
-        .replace("CaseB_UUID", generate_random_uuid()) \
-        .replace("GroupA_UUID", groupA_uuid) \
-        .replace("GroupB_UUID", groupB_uuid) \
-        .replace("GroupA_Category_UUID", generate_random_uuid()) \
-        .replace("GroupB_Category_UUID", generate_random_uuid()) \
-        .replace("Other_Category_UUID", generate_random_uuid()) \
-        .replace("ExitA_UUID", generate_random_uuid()) \
-        .replace("ExitB_UUID", generate_random_uuid()) \
-        .replace("ExitOther_UUID", generate_random_uuid()) \
-        .replace("Destination_UUID", destination_uuid) \
-        .replace("PickRandomGroupNode_UUID", generate_random_uuid()) \
-        .replace("RandomChoiceGroupA_Exit", generate_random_uuid()) \
-        .replace("RandomChoiceGroupB_Exit", generate_random_uuid()) \
-        .replace("AssignToGroupANode_UUID", generate_random_uuid()) \
-        .replace("AssignToGroupBNode_UUID", generate_random_uuid()) \
-        .replace("GroupA_name", groupA_name) \
+    """
+    template = (
+        assign_to_random_group_template.replace(
+            "EntryNode_UUID", generate_random_uuid()
+        )
+        .replace("CaseA_UUID", generate_random_uuid())
+        .replace("CaseB_UUID", generate_random_uuid())
+        .replace("GroupA_UUID", groupA_uuid)
+        .replace("GroupB_UUID", groupB_uuid)
+        .replace("GroupA_Category_UUID", generate_random_uuid())
+        .replace("GroupB_Category_UUID", generate_random_uuid())
+        .replace("Other_Category_UUID", generate_random_uuid())
+        .replace("ExitA_UUID", generate_random_uuid())
+        .replace("ExitB_UUID", generate_random_uuid())
+        .replace("ExitOther_UUID", generate_random_uuid())
+        .replace("Destination_UUID", destination_uuid)
+        .replace("PickRandomGroupNode_UUID", generate_random_uuid())
+        .replace("RandomChoiceGroupA_Exit", generate_random_uuid())
+        .replace("RandomChoiceGroupB_Exit", generate_random_uuid())
+        .replace("AssignToGroupANode_UUID", generate_random_uuid())
+        .replace("AssignToGroupBNode_UUID", generate_random_uuid())
+        .replace("GroupA_name", groupA_name)
         .replace("GroupB_name", groupB_name)
+    )
     n_one_time_uuids = template.count("OneTimeUse_UUID")
     for _ in range(n_one_time_uuids):
         # Each time, only replace first instance.
@@ -47,13 +52,14 @@ def get_assign_to_group_gadget(groupA_name, groupA_uuid, groupB_name, groupB_uui
 
 
 def get_assign_to_fixed_group_gadget(group_name, group_uuid, destination_uuid):
-    ''' Always assigns the contact to the given group. '''
+    """Always assigns the contact to the given group."""
 
-    template = assign_to_fixed_group_template \
-        .replace("GroupA_UUID", group_uuid) \
-        .replace("Destination_UUID", destination_uuid) \
-        .replace("AssignToGroupANode_UUID", generate_random_uuid()) \
+    template = (
+        assign_to_fixed_group_template.replace("GroupA_UUID", group_uuid)
+        .replace("Destination_UUID", destination_uuid)
+        .replace("AssignToGroupANode_UUID", generate_random_uuid())
         .replace("GroupA_name", group_name)
+    )
     n_one_time_uuids = template.count("OneTimeUse_UUID")
     for _ in range(n_one_time_uuids):
         # Each time, only replace first instance.
@@ -63,7 +69,7 @@ def get_assign_to_fixed_group_gadget(group_name, group_uuid, destination_uuid):
 
 
 def get_switch_node(edit_op, dest_uuids):
-    '''
+    """
     Create a router node with N cases as specified in the edit_op,
     and N+1 categories and exits (one extra for the default option).
 
@@ -76,40 +82,34 @@ def get_switch_node(edit_op, dest_uuids):
 
     Returns:
         node
-    '''
+    """
     cases = []
     node_categories = []
     exits = []
     # For each category, make node case/category/exit
     for dest_uuid, category in zip(dest_uuids[:-1], edit_op.categories()):
-        exit = {
-          "uuid": generate_random_uuid(),
-          "destination_uuid": dest_uuid
-        }
+        exit = {"uuid": generate_random_uuid(), "destination_uuid": dest_uuid}
         exits.append(exit)
         node_category = {
             "uuid": generate_random_uuid(),
             "name": category.name,
-            "exit_uuid": exit["uuid"]
+            "exit_uuid": exit["uuid"],
         }
         node_categories.append(node_category)
         case = {
             "uuid": generate_random_uuid(),
             "type": category.condition_type,
             "arguments": category.condition_arguments,
-            "category_uuid": node_category["uuid"]
+            "category_uuid": node_category["uuid"],
         }
         cases.append(case)
     # Add a default/other option
-    other_exit = {
-        "uuid": generate_random_uuid(),
-        "destination_uuid": dest_uuids[-1]
-    }
+    other_exit = {"uuid": generate_random_uuid(), "destination_uuid": dest_uuids[-1]}
     exits.append(other_exit)
     other_category = {
         "uuid": generate_random_uuid(),
         "name": "Other",
-        "exit_uuid": other_exit["uuid"]
+        "exit_uuid": other_exit["uuid"],
     }
     node_categories.append(other_category)
     # Make the router and node
@@ -119,19 +119,19 @@ def get_switch_node(edit_op, dest_uuids):
         "categories": node_categories,
         "default_category_uuid": other_category["uuid"],
         "operand": edit_op.split_by(),
-        "result_name": ""
+        "result_name": "",
     }
     node = {
         "uuid": generate_random_uuid(),
         "actions": [],
         "router": router,
-        "exits" : exits
+        "exits": exits,
     }
     return node
 
 
 def find_node_by_uuid(flow, node_uuid):
-    '''Given a node uuid, finds the corresponding node.
+    """Given a node uuid, finds the corresponding node.
 
     Args:
         flow: flow to search in
@@ -140,7 +140,7 @@ def find_node_by_uuid(flow, node_uuid):
     Returns:
         node with uuid matchign node_uuid
         None if no node was found.
-    '''
+    """
 
     for node in flow["nodes"]:
         if node["uuid"] == node_uuid:
@@ -149,9 +149,9 @@ def find_node_by_uuid(flow, node_uuid):
 
 
 def get_unique_node_copy(node):
-    '''Given a node, creates a new node with unique uuids wherever appropriate.
+    """Given a node, creates a new node with unique uuids wherever appropriate.
 
-    TODO: Make this work for any kind of node. (Check specification.)'''
+    TODO: Make this work for any kind of node. (Check specification.)"""
 
     node_new = copy.deepcopy(node)
     # Generate new uuids for everything that should have a unique one.
@@ -188,13 +188,15 @@ def get_unique_node_copy(node):
                 uuid_map[case["uuid"]] = new_uuid
                 case["uuid"] = new_uuid
                 case["category_uuid"] = uuid_map[case["category_uuid"]]
-        node_new["router"]["default_category_uuid"] = uuid_map[node_new["router"]["default_category_uuid"]]
+        node_new["router"]["default_category_uuid"] = uuid_map[
+            node_new["router"]["default_category_uuid"]
+        ]
 
     return node_new
 
 
 def find_incoming_edges(flow, uuid):
-    '''
+    """
     For a given node uuid, returns a list of exits from other nodes
     that lead into the original node.
 
@@ -204,7 +206,7 @@ def find_incoming_edges(flow, uuid):
 
     Returns:
         list of exits
-    '''
+    """
 
     # TODO: Caching for performance?
     exits = []

@@ -1,11 +1,10 @@
-
 class ContactGroup(object):
-    '''Represents a RapidPro contact group
+    """Represents a RapidPro contact group
 
     Attributes:
         name: group name
         uuid: group uuid
-    '''
+    """
 
     def __init__(self, name, uuid=None):
         self.name = name
@@ -17,10 +16,10 @@ class ContactGroup(object):
         return False
 
     def to_json_group(self):
-        '''Return corresponding json object for use in RapidPro file.'''
+        """Return corresponding json object for use in RapidPro file."""
 
         return {
-            'uuid': self.uuid,
-            'name': self.name,
-            'query': None,
+            "uuid": self.uuid,
+            "name": self.name,
+            "query": None,
         }

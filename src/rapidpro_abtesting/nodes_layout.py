@@ -1,8 +1,9 @@
 import copy
 import math
 
+
 class NodesLayout(object):
-    '''
+    """
     Attributes:
         layout: a dictionary keyed by node uuids, whose values give information
             how to display the node in the RapidPro UI, for example like this:
@@ -16,7 +17,7 @@ class NodesLayout(object):
                     "cases": {}
                   }
                 }
-    '''
+    """
 
     # Distance between nodes so they don't overlap
     HORIZONTAL_MARGIN = 250
@@ -48,7 +49,7 @@ class NodesLayout(object):
 
     def center(self):
         xmin, xmax, ymin, ymax = self.bounding_box()
-        return (xmax+xmin)//2, (ymax+ymin)//2   
+        return (xmax + xmin) // 2, (ymax + ymin) // 2
 
     def shift(self, xshift, yshift):
         for node_layout in self._layout.values():
@@ -59,7 +60,7 @@ class NodesLayout(object):
         node_layout["position"]["top"] += yshift
 
     def normalize(self):
-        '''Shift all nodes to ensure non-negative coordinates.'''
+        """Shift all nodes to ensure non-negative coordinates."""
 
         if self._layout == dict():
             return
@@ -70,9 +71,9 @@ class NodesLayout(object):
         self.shift(xshift, yshift)
 
     def insert_after(self, node_uuid, node_layout):
-        '''Insert a new node with the given uuid and layout and adjust its
+        """Insert a new node with the given uuid and layout and adjust its
         position so that it comes below all the nodes in the current
-        nodes layout'''
+        nodes layout"""
 
         if node_layout is None:
             return
@@ -85,29 +86,30 @@ class NodesLayout(object):
         self._layout[node_uuid] = node_layout
 
     def merge(self, nodes_layout):
-        '''Merge nodes_layout with this layout.
+        """Merge nodes_layout with this layout.
 
-        The nodes_layout will be inserted below this layout.'''
+        The nodes_layout will be inserted below this layout."""
 
         if self._layout == dict():
             if nodes_layout != dict():
                 self._layout = nodes_layout
             return
 
-        nodes_layout = copy.deepcopy(nodes_layout)      
+        nodes_layout = copy.deepcopy(nodes_layout)
         _, _, _, ymax = self.bounding_box()
         xcenter, _ = self.center()
         _, _, ymin2, _ = nodes_layout.bounding_box()
         xcenter2, _ = nodes_layout.center()
-        nodes_layout.shift(xcenter - xcenter2, ymax - ymin2 + NodesLayout.VERTICAL_MARGIN)
+        nodes_layout.shift(
+            xcenter - xcenter2, ymax - ymin2 + NodesLayout.VERTICAL_MARGIN
+        )
         self._layout.update(nodes_layout._layout)
 
-
     def replace(self, node_uuid, nodes_layout):
-        '''Remove the node with the given uuid from the layout and in its
+        """Remove the node with the given uuid from the layout and in its
         position insert the given layout of nodes.
         Other nodes in the original layout that may overlap the inserted
-        nodes are shifted out of the way (using the expand method).'''
+        nodes are shifted out of the way (using the expand method)."""
 
         node_layout = self.get_node(node_uuid)
         if node_layout is None:
@@ -124,10 +126,10 @@ class NodesLayout(object):
         self._layout.update(nodes_layout._layout)
 
     def expand(self, bbox):
-        '''Shift all nodes to ensure they don't overlap the given bounding box'''
+        """Shift all nodes to ensure they don't overlap the given bounding box"""
 
         xmin, xmax, ymin, ymax = bbox
-        xcenter, ycenter = (xmax+xmin)//2, (ymax+ymin)//2
+        xcenter, ycenter = (xmax + xmin) // 2, (ymax + ymin) // 2
         for node_layout in self._layout.values():
             if node_layout["position"]["left"] < xcenter:
                 node_layout["position"]["left"] -= xcenter - xmin
@@ -139,7 +141,7 @@ class NodesLayout(object):
                 node_layout["position"]["top"] += ycenter - ymin
 
     def from_single_node_layout(node_uuid, node_layout):
-        return NodesLayout({node_uuid : node_layout})
+        return NodesLayout({node_uuid: node_layout})
 
 
 def make_tree_layout(operand, switch_uuid, node_variations, node_layout):
@@ -149,7 +151,7 @@ def make_tree_layout(operand, switch_uuid, node_variations, node_layout):
     tree_layout = dict()
     for i, variation in enumerate(node_variations):
         layout = copy.deepcopy(node_layout)
-        layout["position"]["left"] = NodesLayout.HORIZONTAL_MARGIN*i
+        layout["position"]["left"] = NodesLayout.HORIZONTAL_MARGIN * i
         layout["position"]["top"] = NodesLayout.VERTICAL_MARGIN
         tree_layout[variation["uuid"]] = layout
 
@@ -162,12 +164,10 @@ def make_tree_layout(operand, switch_uuid, node_variations, node_layout):
     switch_layout = {
         "type": switch_type,
         "position": {
-            "left": NodesLayout.HORIZONTAL_MARGIN//2*(len(node_variations)-1),
-            "top": 0
+            "left": NodesLayout.HORIZONTAL_MARGIN // 2 * (len(node_variations) - 1),
+            "top": 0,
         },
-        "config": {
-            "cases": {}
-        }
+        "config": {"cases": {}},
     }
 
     tree_layout[switch_uuid] = switch_layout
@@ -179,4 +179,3 @@ def normalize_flow_layout(flow):
     nodes_layout.normalize()
     if "_ui" in flow:
         flow["_ui"]["nodes"] = nodes_layout.layout()
-
