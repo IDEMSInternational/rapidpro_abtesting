@@ -19,6 +19,9 @@ from rapidpro_abtesting.uuid_tools import generate_random_uuid
 logger = logging.getLogger(__name__)
 
 
+REGEX_PREFIX = "regex:"
+
+
 class FlowSnippet(object):
     """A piece of flow with a single entry and exit point.
 
@@ -121,14 +124,14 @@ class GenericEditOp(ABC):
         config=None,
     ):
         self._row_id = row_id
-        if flow_id[:6].lower() == "regex:":
-            self._flow_id = flow_id[6:]
+        if get_regex_pattern(flow_id):
+            self._flow_id = get_regex_pattern(flow_id)
             self._flow_match_regex = True
         else:
             self._flow_id = flow_id
             self._flow_match_regex = False
-        if isinstance(node_identifier, str) and node_identifier[:6].lower() == "regex:":
-            self._node_identifier = node_identifier[6:]
+        if isinstance(node_identifier, str) and get_regex_pattern(node_identifier):
+            self._node_identifier = get_regex_pattern(node_identifier)
             self._node_match_regex = True
         else:
             self._node_identifier = node_identifier
@@ -462,8 +465,8 @@ class FlowEditOp(GenericEditOp):
         for action in node["actions"]:
             if action["type"] == "send_msg":
                 text = action["text"]
-                total_occurrences += text.count(self.bit_of_text())
-                text_new = text.replace(self.bit_of_text(), replacement_text)
+                total_occurrences += count(text, self.bit_of_text())
+                text_new = replace(text, self.bit_of_text(), replacement_text)
                 action["text"] = text_new
         # TODO: If we don't just store the node uuid, but also action uuid
         #   where edit_op is applicable, we could give more helpful
@@ -520,8 +523,8 @@ class FlowEditOp(GenericEditOp):
             for action in node["actions"]:
                 if action["type"] == "send_msg":
                     for i, text in enumerate(action[action_field]):
-                        total_occurrences += text.count(bit_of_text)
-                        text_new = text.replace(bit_of_text, repl_text)
+                        total_occurrences += count(text, bit_of_text)
+                        text_new = replace(text, bit_of_text, repl_text)
                         action[action_field][i] = text_new
             if total_occurrences == 0:
                 logger.warning(
@@ -924,6 +927,28 @@ FLOWEDIT_OPERATION_TYPES = {
 }
 
 
+def get_regex_pattern(string):
+    if string.lower().startswith(REGEX_PREFIX):
+        return string[len(REGEX_PREFIX):]
+    return None
+
+
+def count(text, string):
+    pattern = get_regex_pattern(string)
+    if pattern:
+        return len(re.findall(pattern, text))
+    else:
+        return text.count(string)
+
+
+def replace(text, string, replacement):
+    pattern = get_regex_pattern(string)
+    if pattern:
+        return re.sub(pattern, replacement, text)
+    else:
+        return text.replace(string, replacement)
+
+
 class TranslationEditOp(GenericEditOp):
     @classmethod
     def get_operation_types(cls):
@@ -994,8 +1019,8 @@ class TranslationEditOp(GenericEditOp):
                 text = tr_action["text"][
                     0
                 ]  # not sure why in translations the text is a list.
-                total_occurrences += text.count(self.bit_of_text())
-                text_new = text.replace(self.bit_of_text(), self.default_text())
+                total_occurrences += count(text, self.bit_of_text())
+                text_new = replace(text, self.bit_of_text(), self.default_text())
                 tr_action["text"][0] = text_new
 
         if total_occurrences == 0:
@@ -1036,8 +1061,8 @@ class TranslationEditOp(GenericEditOp):
                         )
                         continue
                     for i, text in enumerate(tr_action[action_field]):
-                        total_occurrences += text.count(bit_of_text)
-                        text_new = text.replace(bit_of_text, repl_text)
+                        total_occurrences += count(text, bit_of_text)
+                        text_new = replace(text, bit_of_text, repl_text)
                         tr_action[action_field][i] = text_new
             if total_occurrences == 0:
                 logger.warning(
