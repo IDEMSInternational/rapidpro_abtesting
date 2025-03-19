@@ -26,8 +26,11 @@ from rapidpro_abtesting.sheets import (
 )
 from rapidpro_abtesting.uuid_tools import UUIDLookup
 from rapidpro_abtesting.operations import (
+    count,
     FlowEditOp,
+    get_regex_pattern,
     RemoveAttachmentsFlowEditOp,
+    replace,
     ReplaceAttachmentsFlowEditOp,
     ReplaceFlowFlowEditOp,
     ReplaceQuickReplyFlowEditOp,
@@ -1045,6 +1048,44 @@ class TestRapidProABTestCreatorTwoFlowsWithMatchingNode(unittest.TestCase):
         flows = rpx._data["flows"][1]
         msgs2A = traverse_flow(flows, Context([self.abtests[0].groupA().name]))
         self.assertEqual(msgs2A, exp2A)
+
+
+class TestRapidProABTestCreatorRegexReplace(unittest.TestCase):
+    def test_apply_abtests(self):
+        abtest1 = abtest_from_csv("testdata/RegexReplaceFlowNode.csv")
+        self.abtests = [abtest1]
+
+        filename = "testdata/RegexMatchFlowNode.json"
+        rpx = RapidProABTestCreator(filename)
+        rpx.apply_abtests(self.abtests)
+
+        exp1B = [
+            ("send_msg", "A great personalizable message."),
+            ("send_msg", "Good morning!\nNice to see you."),
+        ]
+
+        flows = rpx._data["flows"][0]
+        msgs1B = traverse_flow(flows, Context([self.abtests[0].groupB().name]))
+        self.assertEqual(msgs1B, exp1B)
+
+    def test_get_regex_pattern(self):
+        self.assertEqual(get_regex_pattern("REGEX:.*"), ".*")
+        self.assertEqual(get_regex_pattern("regex:.*"), ".*")
+        self.assertEqual(get_regex_pattern("regex:.*regex"), ".*regex")
+        self.assertEqual(get_regex_pattern(".*"), None)
+
+    def test_count(self):
+        self.assertEqual(count("abc", "REGEX:a.*"), 1)
+        self.assertEqual(count("abc", "a.*"), 0)
+        self.assertEqual(count("abcabc", "regex:abc"), 2)
+        self.assertEqual(count("abcabc", "abc"), 2)
+
+    def test_replace(self):
+        self.assertEqual(replace("abc", "REGEX:a.*", "xyz"), "xyz")
+        self.assertEqual(replace("abc", "a.*", "xyz"), "abc")
+        self.assertEqual(replace("abc", "REGEX:a(.*)", "x\\1"), "xbc")
+        self.assertEqual(replace("abcabc", "regex:abc", "xyz"), "xyzxyz")
+        self.assertEqual(replace("abcabc", "abc", "xyz"), "xyzxyz")
 
 
 class TestRapidProABTestCreatorWaitForResponse(unittest.TestCase):
